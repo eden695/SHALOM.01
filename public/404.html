@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHALOM — Redirection</title>
+    <script>
+      (function () {
+        var parts = location.pathname.split('/').filter(Boolean);
+        var base = '/';
+        if (location.hostname.indexOf('github.io') !== -1 && parts.length > 0) {
+          base = '/' + parts[0] + '/';
+          if (parts[1] === 'docs') {
+            base += 'docs/';
+          }
+        }
+        location.replace(base);
+      })();
+    </script>
+  </head>
+  <body style="font-family:system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;background:#070e20;color:#fff;margin:0;padding:24px;text-align:center;">
+    <div>
+      <h1 style="margin:0 0 8px;font-size:20px;">SHALOM</h1>
+      <p style="margin:0 0 16px;font-size:13px;color:#cbd5e1;">Redirection vers l’application…</p>
+      <a href="./" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:13px;">Ouvrir SHALOM</a>
+    </div>
+  </body>
+</html>

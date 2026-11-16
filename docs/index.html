@@ -28,6 +28,10 @@
     <div id="root"></div>
     <script>
       (function () {
+        if (location.hostname.indexOf('github.io') !== -1 && /\/docs$/.test(location.pathname)) {
+          location.replace(location.pathname + '/' + location.search + location.hash);
+          return;
+        }
         var isUnbuiltSource = !!document.querySelector('script[src="/src/main.tsx"]');
         if (isUnbuiltSource && location.hostname.indexOf('github.io') !== -1) {
           var baseDir = location.pathname.replace(/\/index\.html$/, '/');

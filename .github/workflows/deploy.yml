@@ -20,16 +20,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: bun install || npm install --legacy-peer-deps --no-audit --no-fund
+
       - name: Build
         run: npm run build
+
+      - name: Ensure GitHub Pages uses Actions source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BUILD_TYPE=$(gh api "repos/${{ github.repository }}/pages" --jq '.build_type' 2>/dev/null || echo "none")
+          echo "Current GitHub Pages build_type: $BUILD_TYPE"
+          if [ "$BUILD_TYPE" = "legacy" ]; then
+            echo "Switching GitHub Pages source from branch (legacy) to GitHub Actions (workflow)..."
+            gh api -X PUT "repos/${{ github.repository }}/pages" -f build_type=workflow || echo "::warning::Impossible de basculer automatiquement vers GitHub Actions. Dans GitHub : Settings > Pages > Source > sélectionnez GitHub Actions."
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
