@@ -1,22 +1,67 @@
-// Shared Vector Graphics, Fonts, Color Palettes, Templates & PDF Export Engine for SHALOM Studios
+// Shared Vector Graphics, Fonts, Color Palettes, Offline Studio Photos & Multi-Page PDF Export Engine
 
-export type StudioVectorElementKind =
-  | 'rect'
-  | 'roundRect'
-  | 'circle'
-  | 'triangle'
-  | 'star'
-  | 'cross'
-  | 'dove'
-  | 'crown'
-  | 'bible'
-  | 'rays'
-  | 'heart'
-  | 'diamond'
-  | 'arrow'
-  | 'ribbon'
-  | 'frame'
-  | 'line';
+import bgDawnSanctuary from '../assets/images/studio_bg_dawn_sanctuary_1794916315028.jpg';
+import bgOliveLight from '../assets/images/studio_bg_olive_light_1794916314763.jpg';
+import bgRoyalGoldWaves from '../assets/images/studio_bg_royal_gold_waves_1794916315803.jpg';
+import bgLinenParchment from '../assets/images/studio_bg_linen_parchment_1794916316525.jpg';
+
+import {
+  SVG_VECTOR_CATALOG,
+  StudioVectorElementKind,
+  VectorCategory,
+  buildSvgVectorMarkup,
+  getSvgVectorDef,
+  recolorArbitrarySvgMarkup,
+  renderSvgVectorToCanvas,
+} from './studios/svgVectors';
+
+export type { StudioVectorElementKind, VectorCategory };
+export {
+  SVG_VECTOR_CATALOG,
+  buildSvgVectorMarkup,
+  getSvgVectorDef,
+  recolorArbitrarySvgMarkup,
+  renderSvgVectorToCanvas,
+};
+
+export interface StudioBackdropPhoto {
+  id: string;
+  nameFr: string;
+  nameEn: string;
+  src: string;
+  theme: 'light' | 'dark' | 'editorial';
+}
+
+export const STUDIO_BACKDROP_PHOTOS: StudioBackdropPhoto[] = [
+  {
+    id: 'photo_dawn_sanctuary',
+    nameFr: 'Sanctuaire Aurore',
+    nameEn: 'Dawn Sanctuary',
+    src: bgDawnSanctuary,
+    theme: 'editorial',
+  },
+  {
+    id: 'photo_olive_light',
+    nameFr: 'Rameau d’Olivier',
+    nameEn: 'Olive & Morning Light',
+    src: bgOliveLight,
+    theme: 'light',
+  },
+  {
+    id: 'photo_royal_gold_waves',
+    nameFr: 'Soie Bleu Royal & Or',
+    nameEn: 'Royal Navy & Gold Silk',
+    src: bgRoyalGoldWaves,
+    theme: 'dark',
+  },
+  {
+    id: 'photo_linen_parchment',
+    nameFr: 'Lin & Parchemin Doux',
+    nameEn: 'Fine Linen Parchment',
+    src: bgLinenParchment,
+    theme: 'light',
+  },
+];
 
 export const STUDIO_FONTS = [
   { label: 'Outfit (Moderne)', value: '"Outfit", sans-serif' },
@@ -36,30 +81,15 @@ export const SHALOM_COLOR_PALETTES = [
   { name: 'Terre & Lumière', colors: ['#451a03', '#b45309', '#fde68a', '#fffbeb'] },
 ];
 
-export const VECTOR_ELEMENT_CATALOG: Array<{
-  id: StudioVectorElementKind;
-  labelFr: string;
-  labelEn: string;
-  symbol: string;
-  category: 'spiritual' | 'basic' | 'badge';
-}> = [
-  { id: 'cross', labelFr: 'Croix', labelEn: 'Cross', symbol: '✝', category: 'spiritual' },
-  { id: 'dove', labelFr: 'Colombe', labelEn: 'Dove', symbol: '🕊', category: 'spiritual' },
-  { id: 'bible', labelFr: 'Bible', labelEn: 'Bible', symbol: '📖', category: 'spiritual' },
-  { id: 'crown', labelFr: 'Couronne', labelEn: 'Crown', symbol: '👑', category: 'spiritual' },
-  { id: 'rays', labelFr: 'Lumière', labelEn: 'Light Rays', symbol: '☀', category: 'spiritual' },
-  { id: 'heart', labelFr: 'Cœur', labelEn: 'Heart', symbol: '♥', category: 'spiritual' },
-  { id: 'star', labelFr: 'Étoile', labelEn: 'Star', symbol: '★', category: 'spiritual' },
-  { id: 'rect', labelFr: 'Rectangle', labelEn: 'Rectangle', symbol: '▭', category: 'basic' },
-  { id: 'roundRect', labelFr: 'Arrondi', labelEn: 'Rounded', symbol: '▢', category: 'basic' },
-  { id: 'circle', labelFr: 'Cercle', labelEn: 'Circle', symbol: '●', category: 'basic' },
-  { id: 'triangle', labelFr: 'Triangle', labelEn: 'Triangle', symbol: '▲', category: 'basic' },
-  { id: 'diamond', labelFr: 'Losange', labelEn: 'Diamond', symbol: '◆', category: 'basic' },
-  { id: 'line', labelFr: 'Ligne', labelEn: 'Line', symbol: '―', category: 'basic' },
-  { id: 'arrow', labelFr: 'Flèche', labelEn: 'Arrow', symbol: '➜', category: 'badge' },
-  { id: 'ribbon', labelFr: 'Bannière', labelEn: 'Banner', symbol: '⚑', category: 'badge' },
-  { id: 'frame', labelFr: 'Cadre', labelEn: 'Frame', symbol: '回', category: 'badge' },
-];
+export const VECTOR_ELEMENT_CATALOG = SVG_VECTOR_CATALOG.map((item) => ({
+  id: item.id,
+  labelFr: item.labelFr,
+  labelEn: item.labelEn,
+  category: item.category,
+  tags: item.tags,
+  defaultPrimary: item.defaultPrimary,
+  defaultSecondary: item.defaultSecondary,
+}));
 
 export function drawStudioVectorElement(
   ctx: CanvasRenderingContext2D,
@@ -68,180 +98,31 @@ export function drawStudioVectorElement(
   height: number,
   fillColor: string,
   strokeColor: string,
-  strokeWidth: number
+  strokeWidth: number,
+  secondaryColor?: string
 ) {
+  if (typeof Path2D !== 'undefined') {
+    renderSvgVectorToCanvas(
+      ctx,
+      shape,
+      width,
+      height,
+      fillColor,
+      secondaryColor,
+      strokeColor,
+      strokeWidth
+    );
+    return;
+  }
+
+  // Ultra-rare fallback if Path2D is unavailable
   const hw = width / 2;
   const hh = height / 2;
   ctx.beginPath();
-
-  switch (shape) {
-    case 'rect':
-      ctx.rect(-hw, -hh, width, height);
-      break;
-    case 'roundRect': {
-      const r = Math.min(36, hw, hh);
-      ctx.moveTo(-hw + r, -hh);
-      ctx.lineTo(hw - r, -hh);
-      ctx.quadraticCurveTo(hw, -hh, hw, -hh + r);
-      ctx.lineTo(hw, hh - r);
-      ctx.quadraticCurveTo(hw, hh, hw - r, hh);
-      ctx.lineTo(-hw + r, hh);
-      ctx.quadraticCurveTo(-hw, hh, -hw, hh - r);
-      ctx.lineTo(-hw, -hh + r);
-      ctx.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
-      break;
-    }
-    case 'circle':
-      ctx.ellipse(0, 0, hw, hh, 0, 0, Math.PI * 2);
-      break;
-    case 'triangle':
-      ctx.moveTo(0, -hh);
-      ctx.lineTo(hw, hh);
-      ctx.lineTo(-hw, hh);
-      ctx.closePath();
-      break;
-    case 'diamond':
-      ctx.moveTo(0, -hh);
-      ctx.lineTo(hw, 0);
-      ctx.lineTo(0, hh);
-      ctx.lineTo(-hw, 0);
-      ctx.closePath();
-      break;
-    case 'star': {
-      const spikes = 5;
-      const outerR = Math.min(hw, hh);
-      const innerR = outerR * 0.45;
-      for (let i = 0; i < spikes * 2; i++) {
-        const rad = i % 2 === 0 ? outerR : innerR;
-        const angle = (i * Math.PI) / spikes - Math.PI / 2;
-        const px = Math.cos(angle) * rad;
-        const py = Math.sin(angle) * rad;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      break;
-    }
-    case 'cross': {
-      const armW = width * 0.24;
-      const barY = -height * 0.16;
-      const barH = height * 0.22;
-      ctx.moveTo(-armW / 2, -hh);
-      ctx.lineTo(armW / 2, -hh);
-      ctx.lineTo(armW / 2, barY);
-      ctx.lineTo(hw * 0.85, barY);
-      ctx.lineTo(hw * 0.85, barY + barH);
-      ctx.lineTo(armW / 2, barY + barH);
-      ctx.lineTo(armW / 2, hh);
-      ctx.lineTo(-armW / 2, hh);
-      ctx.lineTo(-armW / 2, barY + barH);
-      ctx.lineTo(-hw * 0.85, barY + barH);
-      ctx.lineTo(-hw * 0.85, barY);
-      ctx.lineTo(-armW / 2, barY);
-      ctx.closePath();
-      break;
-    }
-    case 'heart': {
-      const topCurveH = height * 0.3;
-      ctx.moveTo(0, hh * 0.85);
-      ctx.bezierCurveTo(-hw * 1.15, hh * 0.1, -hw, -hh * 0.72, 0, -hh + topCurveH);
-      ctx.bezierCurveTo(hw, -hh * 0.72, hw * 1.15, hh * 0.1, 0, hh * 0.85);
-      ctx.closePath();
-      break;
-    }
-    case 'dove': {
-      // Graceful stylized dove silhouette
-      ctx.moveTo(-hw * 0.75, hh * 0.15);
-      ctx.quadraticCurveTo(-hw * 0.25, -hh * 0.95, hw * 0.15, -hh * 0.18);
-      ctx.quadraticCurveTo(hw * 0.55, -hh * 0.6, hw * 0.82, -hh * 0.22);
-      ctx.quadraticCurveTo(hw * 0.55, hh * 0.05, hw * 0.25, hh * 0.15);
-      ctx.quadraticCurveTo(hw * 0.5, hh * 0.55, hw * 0.1, hh * 0.65);
-      ctx.quadraticCurveTo(-hw * 0.2, hh * 0.45, -hw * 0.65, hh * 0.68);
-      ctx.quadraticCurveTo(-hw * 0.45, hh * 0.3, -hw * 0.75, hh * 0.15);
-      ctx.closePath();
-      break;
-    }
-    case 'crown': {
-      ctx.moveTo(-hw * 0.85, hh * 0.65);
-      ctx.lineTo(-hw * 0.95, -hh * 0.45);
-      ctx.lineTo(-hw * 0.35, hh * 0.1);
-      ctx.lineTo(0, -hh * 0.75);
-      ctx.lineTo(hw * 0.35, hh * 0.1);
-      ctx.lineTo(hw * 0.95, -hh * 0.45);
-      ctx.lineTo(hw * 0.85, hh * 0.65);
-      ctx.closePath();
-      break;
-    }
-    case 'bible': {
-      // Open book silhouette
-      ctx.moveTo(0, -hh * 0.55);
-      ctx.quadraticCurveTo(-hw * 0.45, -hh * 0.82, -hw * 0.92, -hh * 0.55);
-      ctx.lineTo(-hw * 0.92, hh * 0.68);
-      ctx.quadraticCurveTo(-hw * 0.45, hh * 0.42, 0, hh * 0.72);
-      ctx.quadraticCurveTo(hw * 0.45, hh * 0.42, hw * 0.92, hh * 0.68);
-      ctx.lineTo(hw * 0.92, -hh * 0.55);
-      ctx.quadraticCurveTo(hw * 0.45, -hh * 0.82, 0, -hh * 0.55);
-      ctx.closePath();
-      break;
-    }
-    case 'rays': {
-      const rays = 12;
-      const outer = Math.min(hw, hh);
-      const inner = outer * 0.36;
-      for (let i = 0; i < rays * 2; i++) {
-        const rad = i % 2 === 0 ? outer : inner;
-        const a = (i * Math.PI) / rays;
-        const x = Math.cos(a) * rad;
-        const y = Math.sin(a) * rad;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      break;
-    }
-    case 'arrow': {
-      ctx.moveTo(-hw, -hh * 0.32);
-      ctx.lineTo(hw * 0.25, -hh * 0.32);
-      ctx.lineTo(hw * 0.25, -hh * 0.85);
-      ctx.lineTo(hw, 0);
-      ctx.lineTo(hw * 0.25, hh * 0.85);
-      ctx.lineTo(hw * 0.25, hh * 0.32);
-      ctx.lineTo(-hw, hh * 0.32);
-      ctx.closePath();
-      break;
-    }
-    case 'ribbon': {
-      ctx.moveTo(-hw, -hh * 0.65);
-      ctx.lineTo(hw, -hh * 0.65);
-      ctx.lineTo(hw * 0.78, 0);
-      ctx.lineTo(hw, hh * 0.65);
-      ctx.lineTo(-hw, hh * 0.65);
-      ctx.lineTo(-hw * 0.78, 0);
-      ctx.closePath();
-      break;
-    }
-    case 'frame': {
-      // Outer rectangle + inner cutout
-      ctx.rect(-hw, -hh, width, height);
-      const inset = Math.min(width, height) * 0.12;
-      if (width > inset * 2.5 && height > inset * 2.5) {
-        ctx.rect(-hw + inset, -hh + inset, width - inset * 2, height - inset * 2);
-      }
-      break;
-    }
-    case 'line':
-      ctx.moveTo(-hw, 0);
-      ctx.lineTo(hw, 0);
-      break;
-  }
-
-  if (shape !== 'line' && fillColor !== 'transparent') {
+  ctx.rect(-hw, -hh, width, height);
+  if (fillColor !== 'transparent') {
     ctx.fillStyle = fillColor;
-    if (shape === 'frame') {
-      ctx.fill('evenodd');
-    } else {
-      ctx.fill();
-    }
+    ctx.fill();
   }
   if (strokeWidth > 0) {
     ctx.strokeStyle = strokeColor;
@@ -250,21 +131,38 @@ export function drawStudioVectorElement(
   }
 }
 
-// Pure-TS single-page PDF generator wrapping a high-res JPEG canvas image (Zero dependencies, 100% offline)
-export async function exportCanvasToPdfBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  const jpegBlob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('Impossible de générer l’aperçu PDF.'))),
-      'image/jpeg',
-      0.92
-    );
-  });
-  const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
-  const w = canvas.width;
-  const h = canvas.height;
-  // Scale to fit A4 / poster dimensions in PDF points (72 dpi)
-  const pdfW = 595;
-  const pdfH = Math.round((h / Math.max(1, w)) * pdfW);
+// Pure-TS Multi-Page PDF generator wrapping high-res JPEG canvas pages (Zero dependencies, 100% offline)
+export async function exportCanvasesToMultiPagePdfBlob(
+  canvases: HTMLCanvasElement[]
+): Promise<Blob> {
+  if (!canvases || canvases.length === 0) {
+    throw new Error('Aucune page à exporter en PDF.');
+  }
+
+  interface EncodedPage {
+    jpegBytes: Uint8Array;
+    w: number;
+    h: number;
+    pdfW: number;
+    pdfH: number;
+  }
+
+  const encodedPages: EncodedPage[] = [];
+  for (const canvas of canvases) {
+    const jpegBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Impossible de générer une page PDF.'))),
+        'image/jpeg',
+        0.92
+      );
+    });
+    const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+    const w = Math.max(1, canvas.width);
+    const h = Math.max(1, canvas.height);
+    const pdfW = 595;
+    const pdfH = Math.max(100, Math.round((h / w) * pdfW));
+    encodedPages.push({ jpegBytes, w, h, pdfW, pdfH });
+  }
 
   const enc = new TextEncoder();
   const chunks: Uint8Array[] = [];
@@ -283,27 +181,50 @@ export async function exportCanvasToPdfBlob(canvas: HTMLCanvasElement): Promise<
 
   pushStr('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
 
+  // Object 1: Catalog
   offsets.push(byteLength);
   pushStr('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
 
-  offsets.push(byteLength);
-  pushStr('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+  // Compute Page object IDs: each page takes 3 objects (Page, Image XObject, Contents) starting at object 3
+  const pageKids: string[] = [];
+  for (let i = 0; i < encodedPages.length; i++) {
+    const pageObjId = 3 + i * 3;
+    pageKids.push(`${pageObjId} 0 R`);
+  }
 
+  // Object 2: Pages
   offsets.push(byteLength);
   pushStr(
-    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfW} ${pdfH}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n`
+    `2 0 obj\n<< /Type /Pages /Kids [${pageKids.join(' ')}] /Count ${encodedPages.length} >>\nendobj\n`
   );
 
-  offsets.push(byteLength);
-  pushStr(
-    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.byteLength} >>\nstream\n`
-  );
-  pushBytes(jpegBytes);
-  pushStr('\nendstream\nendobj\n');
+  for (let i = 0; i < encodedPages.length; i++) {
+    const p = encodedPages[i];
+    const pageObjId = 3 + i * 3;
+    const imgObjId = pageObjId + 1;
+    const contentObjId = pageObjId + 2;
 
-  const contentStream = `q\n${pdfW} 0 0 ${pdfH} 0 0 cm\n/Im0 Do\nQ\n`;
-  offsets.push(byteLength);
-  pushStr(`5 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}endstream\nendobj\n`);
+    // Page object
+    offsets.push(byteLength);
+    pushStr(
+      `${pageObjId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${p.pdfW} ${p.pdfH}] /Resources << /XObject << /Im0 ${imgObjId} 0 R >> >> /Contents ${contentObjId} 0 R >>\nendobj\n`
+    );
+
+    // Image XObject
+    offsets.push(byteLength);
+    pushStr(
+      `${imgObjId} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpegBytes.byteLength} >>\nstream\n`
+    );
+    pushBytes(p.jpegBytes);
+    pushStr('\nendstream\nendobj\n');
+
+    // Content stream
+    const contentStream = `q\n${p.pdfW} 0 0 ${p.pdfH} 0 0 cm\n/Im0 Do\nQ\n`;
+    offsets.push(byteLength);
+    pushStr(
+      `${contentObjId} 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}endstream\nendobj\n`
+    );
+  }
 
   const xrefOffset = byteLength;
   pushStr(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
@@ -319,4 +240,8 @@ export async function exportCanvasToPdfBlob(canvas: HTMLCanvasElement): Promise<
     pos += c.byteLength;
   }
   return new Blob([total], { type: 'application/pdf' });
+}
+
+export async function exportCanvasToPdfBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return exportCanvasesToMultiPagePdfBlob([canvas]);
 }

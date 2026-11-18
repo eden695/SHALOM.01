@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   HeartHandshake,
   Plus,
@@ -16,18 +16,14 @@ import {
   CheckSquare,
   Square,
   Send,
-  Upload,
   CheckCircle2,
-  Smartphone,
 } from 'lucide-react';
 import { dbService, STORES } from '../../services/db';
-import { importContactsFromVcfOrCsv } from '../../services/phoneContacts';
 import { useShalomDB } from '../../hooks/useShalomDB';
 import { useModuleSubView } from '../../contexts/NavigationContext';
 import { PrayerItem, TestimonyItem, PrayerCategory, PrayerStatus, Contact } from '../../types';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { DeviceContactImportModal } from '../contacts/DeviceContactImportModal';
 import { SocialShareModal } from '../common/SocialShareModal';
 import {
   MediaPickerBox,
@@ -126,7 +122,6 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
 
   // Directory Contact Picker Modal when selecting "Partageable"
   const [isDirectoryPickerOpen, setIsDirectoryPickerOpen] = useState(false);
-  const [isDeviceImportOpen, setIsDeviceImportOpen] = useState(false);
   const [directorySearch, setDirectorySearch] = useState('');
   const [directoryNotice, setDirectoryNotice] = useState<string | null>(null);
 
@@ -167,8 +162,6 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
 
   // Unified Multi-Social Share Modal
   const [socialSharePayload, setSocialSharePayload] = useState<SharePayload | null>(null);
-
-  const vcfPrayerInputRef = useRef<HTMLInputElement | null>(null);
 
   const CATEGORIES: { id: PrayerCategory; label: string }[] = [
     { id: 'personnelle', label: 'Prière Personnelle' },
@@ -256,27 +249,6 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
           : [...prev.authorizedContactIds, contactId],
       };
     });
-  };
-
-
-  const handleImportVcfForPrayer = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const { contacts: imported, addedCount } = await importContactsFromVcfOrCsv(file, contacts);
-    if (imported.length > 0) {
-      const importedIds = imported.map((c) => c.id);
-      setPrayerForm((prev) => ({
-        ...prev,
-        authorizedContactIds: Array.from(new Set([...prev.authorizedContactIds, ...importedIds])),
-      }));
-      setDirectoryNotice(
-        `${imported.length} contact(s) sélectionné(s) (${addedCount} nouveau(x) importé(s)).`
-      );
-      reloadData();
-    } else {
-      setDirectoryNotice('Aucun contact valide trouvé dans ce fichier.');
-    }
-    e.target.value = '';
   };
 
   const promptTellTestimonyForPrayer = (prayer: PrayerItem) => {
@@ -1212,7 +1184,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                   className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold flex items-center gap-1.5"
                 >
                   <Users className="w-3.5 h-3.5" />
-                  <span>Ouvrir le répertoire</span>
+                  <span>Choisir les destinataires</span>
                 </button>
               </div>
             )}
@@ -1256,35 +1228,10 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
           setDirectoryNotice(null);
         }}
         title="Sélectionner les personnes autorisées"
-        subtitle="Choisissez parmi vos contacts SHALOM ou importez un fichier .vcf"
+        subtitle="Choisissez parmi vos contacts SHALOM"
         maxWidth="md"
       >
         <div className="space-y-3">
-          <div className="space-y-2">
-            <input
-              ref={vcfPrayerInputRef}
-              type="file"
-              accept=".vcf,.csv,text/vcard"
-              onChange={handleImportVcfForPrayer}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => setIsDeviceImportOpen(true)}
-              className="w-full min-h-[44px] px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
-            >
-              <Smartphone className="w-4 h-4" />
-              <span>Ajouter depuis mes contacts</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => vcfPrayerInputRef.current?.click()}
-              className="w-full min-h-[40px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5"
-            >
-              <Upload className="w-3.5 h-3.5 text-blue-600" />
-              <span>Importer un fichier .vcf</span>
-            </button>
-          </div>
 
           {directoryNotice && (
             <div className="text-[11px] p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200">
@@ -1336,7 +1283,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
 
             {filteredDirectoryContacts.length === 0 && (
               <p className="text-xs text-slate-500 text-center py-6">
-                Aucun contact trouvé dans le répertoire.
+                Aucun contact SHALOM trouvé.
               </p>
             )}
           </div>
@@ -1579,24 +1526,6 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
         isDestructive
         onConfirm={handleBulkDeleteTestimonies}
         onCancel={() => setIsBulkDeleteTestimoniesOpen(false)}
-      />
-
-      <DeviceContactImportModal
-        isOpen={isDeviceImportOpen}
-        onClose={() => setIsDeviceImportOpen(false)}
-        existingContacts={contacts}
-        onImported={async (imported) => {
-          await reloadData();
-          if (imported.length > 0) {
-            setPrayerForm((prev) => ({
-              ...prev,
-              authorizedContactIds: Array.from(
-                new Set([...prev.authorizedContactIds, ...imported.map((c) => c.id)])
-              ),
-            }));
-          }
-          setIsDeviceImportOpen(false);
-        }}
       />
     </div>
   );

@@ -373,7 +373,7 @@ export interface CreativeDesignItem {
   id: string;
   title: string;
   templateType: 'verset' | 'voeux' | 'invitation' | 'encouragement';
-  studioType?: 'design' | 'audio' | 'video';
+  studioType?: 'design' | 'presentation' | 'audio' | 'video';
   format?: string;
   thumbnailDataUrl?: string;
   mediaBlobKey: string;
@@ -386,8 +386,8 @@ export interface CreativeDesignItem {
 }
 
 export interface StudioDraftItem {
-  id: 'draft_design' | 'draft_audio' | 'draft_video';
-  studioType: 'design' | 'audio' | 'video';
+  id: 'draft_design' | 'draft_presentation' | 'draft_audio' | 'draft_video';
+  studioType: 'design' | 'presentation' | 'audio' | 'video';
   title: string;
   projectJson: string;
   mediaAssetKeys?: string[];
@@ -396,12 +396,18 @@ export interface StudioDraftItem {
 
 export interface SavedStudioTemplate {
   id: string;
-  studioType: 'design' | 'video' | 'audio';
+  studioType: 'design' | 'presentation' | 'video' | 'audio';
+  resourceType?: 'template' | 'element' | 'image' | 'vector' | 'audio' | 'video' | 'background';
   title: string;
   category: string;
   templateJson: string;
   previewColor?: string;
   previewColor2?: string;
+  previewDataUrl?: string;
+  assetKeys?: string[];
+  verifiedOffline?: boolean;
+  attribution?: string;
+  license?: string;
   source: 'online-catalog' | 'online-live';
   savedAt: string;
 }

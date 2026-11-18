@@ -6,6 +6,7 @@ import { searchOnlineStudioTemplates, type StudioKind } from './server/studioTem
 import {
   searchOnlineCreativeAssets,
   proxySafeAssetImage,
+  proxySafeMediaAsset,
   type CreativeAssetType,
 } from './server/studioAssets.ts';
 
@@ -85,6 +86,26 @@ async function startServer() {
       res.status(400).json({
         ok: false,
         error: err instanceof Error ? err.message : 'Impossible de charger l’image distante',
+      });
+    }
+  });
+
+  app.get('/api/studios/assets/media-proxy', async (req, res) => {
+    try {
+      const url = typeof req.query?.url === 'string' ? req.query.url : '';
+      if (!url) {
+        res.status(400).json({ ok: false, error: 'Paramètre url manquant' });
+        return;
+      }
+      const { buffer, contentType } = await proxySafeMediaAsset(url, 'any');
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(buffer);
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Impossible de charger le média distant',
       });
     }
   });

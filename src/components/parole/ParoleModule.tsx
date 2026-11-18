@@ -48,14 +48,20 @@ export const ParoleModule: React.FC = () => {
     setIsRecordingModalOpen,
     finishedRecording,
     setFinishedRecording,
+    capturedPhotos,
+    addCapturedPhoto,
+    removeCapturedPhoto,
+    clearCapturedPhotos,
     startAudio,
     startVideo,
+    attachPreviewElement,
     pauseOrResume,
     switchCamera,
     capturePhotoFromVideo,
     acquirePhotoStream,
     stopRecording,
     cancelRecording,
+    hasNativeForegroundRecorder,
   } = useGlobalRecording();
 
   const [activeFilterType, setActiveFilterType] = useState<string>('all');
@@ -94,8 +100,7 @@ export const ParoleModule: React.FC = () => {
   // Share modal
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
 
-  // Live photos captured while recording a Parole
-  const [capturedPhotos, setCapturedPhotos] = useState<Array<{ blob: Blob; previewUrl: string }>>([]);
+  // Live photos captured while recording a Parole (persisted via RecordingContext across minimize/reopen)
   const [photoFlashNotice, setPhotoFlashNotice] = useState<string | null>(null);
   const [isAudioPhotoCamOpen, setIsAudioPhotoCamOpen] = useState(false);
   const [audioPhotoCamFacing, setAudioPhotoCamFacing] = useState<'user' | 'environment'>('environment');
@@ -122,6 +127,12 @@ export const ParoleModule: React.FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    if (isRecordingModalOpen && recorderState.isRecording && captureMethod === 'video') {
+      attachPreviewElement(videoPreviewRef.current);
+    }
+  }, [isRecordingModalOpen, recorderState.isRecording, captureMethod, attachPreviewElement]);
+
   const formatSeconds = (sec: number) => {
     const mins = Math.floor(sec / 60);
     const s = sec % 60;
@@ -144,10 +155,7 @@ export const ParoleModule: React.FC = () => {
     if (finishedRecording?.previewUrl) {
       URL.revokeObjectURL(finishedRecording.previewUrl);
     }
-    setCapturedPhotos((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      return [];
-    });
+    clearCapturedPhotos();
     setPhotoFlashNotice(null);
     setFinishedRecording(null);
     setSaveError(null);
@@ -232,8 +240,7 @@ export const ParoleModule: React.FC = () => {
     if (captureMethod === 'video' && recorderState.isRecording) {
       const blob = await capturePhotoFromVideo();
       if (blob && blob.size > 0) {
-        const previewUrl = URL.createObjectURL(blob);
-        setCapturedPhotos((prev) => [...prev, { blob, previewUrl }]);
+        addCapturedPhoto(blob);
         showPhotoCapturedFeedback();
       } else {
         setSaveError('Caméra en cours de chargement, réessayez dans une seconde.');
@@ -244,8 +251,7 @@ export const ParoleModule: React.FC = () => {
     if (isAudioPhotoCamOpen) {
       const blob = await MediaRecordingManager.capturePhotoFromVideoElement(audioPhotoVideoRef.current);
       if (blob && blob.size > 0) {
-        const previewUrl = URL.createObjectURL(blob);
-        setCapturedPhotos((prev) => [...prev, { blob, previewUrl }]);
+        addCapturedPhoto(blob);
         showPhotoCapturedFeedback();
       }
       return;
@@ -257,25 +263,21 @@ export const ParoleModule: React.FC = () => {
   const handleImportPhotoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const added: Array<{ blob: Blob; previewUrl: string }> = [];
+    let addedCount = 0;
     Array.from(files).forEach((f) => {
       if (f.type.startsWith('image/')) {
-        added.push({ blob: f, previewUrl: URL.createObjectURL(f) });
+        addCapturedPhoto(f);
+        addedCount++;
       }
     });
-    if (added.length > 0) {
-      setCapturedPhotos((prev) => [...prev, ...added]);
+    if (addedCount > 0) {
       showPhotoCapturedFeedback();
     }
     e.target.value = '';
   };
 
   const handleRemoveCapturedPhoto = (idx: number) => {
-    setCapturedPhotos((prev) => {
-      const target = prev[idx];
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((_, i) => i !== idx);
-    });
+    removeCapturedPhoto(idx);
   };
 
   const handleStopRecording = async () => {
@@ -1003,11 +1005,17 @@ export const ParoleModule: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsRecordingModalOpen(false)}
-                  className="inline-flex items-center gap-1.5 text-[11px] text-blue-200 hover:text-white pt-1 underline"
+                  className="inline-flex items-center gap-1.5 text-[11px] text-blue-200 hover:text-white pt-1 underline min-h-[36px]"
                 >
                   <Minimize2 className="w-3.5 h-3.5" />
-                  <span>Réduire et continuer l’enregistrement</span>
+                  <span>Réduire et continuer dans l’app (bulle flottante)</span>
                 </button>
+
+                <p className="text-[10px] text-blue-200/80 leading-snug pt-0.5">
+                  {hasNativeForegroundRecorder
+                    ? 'Service Android actif : la capture continue même en arrière-plan.'
+                    : 'La capture reste active dans tout SHALOM grâce à la bulle flottante. En mode WebView sans pont Android natif, évitez de verrouiller l’écran.'}
+                </p>
 
                 {photoFlashNotice && (
                   <div className="text-[11px] font-bold text-emerald-300 animate-pulse">
@@ -1159,7 +1167,7 @@ export const ParoleModule: React.FC = () => {
             {capturedPhotos.length > 0 ? (
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {capturedPhotos.map((photo, idx) => (
-                  <div key={photo.previewUrl} className="relative group rounded-lg overflow-hidden aspect-square bg-black border border-slate-200 dark:border-slate-700">
+                  <div key={photo.id} className="relative group rounded-lg overflow-hidden aspect-square bg-black border border-slate-200 dark:border-slate-700">
                     <img
                       src={photo.previewUrl}
                       alt={`Capture ${idx + 1}`}

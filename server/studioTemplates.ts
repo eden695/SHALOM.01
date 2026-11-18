@@ -1,6 +1,6 @@
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 
-export type StudioKind = 'design' | 'video' | 'audio';
+export type StudioKind = 'design' | 'presentation' | 'video' | 'audio';
 
 const ALLOWED_FONTS = new Set([
   '"Outfit", sans-serif',
@@ -1791,13 +1791,17 @@ export async function searchOnlineStudioTemplates(params: {
   page?: number;
   excludeTitles?: string[];
 }): Promise<{
-  templates: Array<OnlineDesignTemplate | OnlineVideoTemplate | OnlineAudioTemplate>;
+  templates: Array<OnlineDesignTemplate | OnlineVideoTemplate | OnlineAudioTemplate | Record<string, unknown>>;
   aiEnhanced: boolean;
   page: number;
   hasMore: boolean;
 }> {
   const studioType: StudioKind =
-    params.studioType === 'video' || params.studioType === 'audio' ? params.studioType : 'design';
+    params.studioType === 'video' ||
+    params.studioType === 'audio' ||
+    params.studioType === 'presentation'
+      ? params.studioType
+      : 'design';
   const query = (params.query || '').trim();
   const qNorm = normalizeText(query);
   const category = (params.category || '').trim();
@@ -1808,11 +1812,86 @@ export async function searchOnlineStudioTemplates(params: {
     : [];
   const excludeSet = new Set(excludeTitles.map((t) => normalizeText(t)));
 
-  let catalogMatches: Array<OnlineDesignTemplate | OnlineVideoTemplate | OnlineAudioTemplate> = [];
+  let catalogMatches: Array<OnlineDesignTemplate | OnlineVideoTemplate | OnlineAudioTemplate | Record<string, unknown>> = [];
 
   if (page === 1) {
     if (studioType === 'design') {
       catalogMatches = ONLINE_DESIGN_CATALOG.filter(
+        (t) =>
+          matchesQuery(t, [t.nameFr, t.nameEn], qNorm, category) &&
+          !excludeSet.has(normalizeText(t.nameFr))
+      );
+    } else if (studioType === 'presentation') {
+      const presCatalog = ONLINE_DESIGN_CATALOG.map((t) => ({
+        ...t,
+        id: t.id.replace('onl_des_', 'onl_prs_'),
+        format: 'landscape' as const,
+        pages: [
+          {
+            id: `${t.id}_p1`,
+            name: lang === 'en' ? 'Slide 1' : 'Diapositive 1',
+            transition: 'fade',
+            bgType: t.bgType,
+            bgColor1: t.bgColor1,
+            bgColor2: t.bgColor2,
+            bgAngle: t.bgAngle,
+            layers: t.layers,
+            strokes: [],
+          },
+          {
+            id: `${t.id}_p2`,
+            name: lang === 'en' ? 'Slide 2' : 'Diapositive 2',
+            transition: 'slide',
+            bgType: 'gradient',
+            bgColor1: t.bgColor2,
+            bgColor2: t.bgColor1,
+            bgAngle: 145,
+            layers: [
+              {
+                kind: 'text',
+                id: `${t.id}_p2_h`,
+                x: 640,
+                y: 220,
+                text: (lang === 'en' ? t.nameEn : t.nameFr).toUpperCase(),
+                fontFamily: '"Outfit", sans-serif',
+                fontSize: 52,
+                color: '#ffffff',
+                bold: true,
+                italic: false,
+                align: 'center',
+                bgColor: '#000000',
+                bgEnabled: false,
+                shadow: true,
+                rotation: 0,
+                opacity: 1,
+              },
+              {
+                kind: 'text',
+                id: `${t.id}_p2_b`,
+                x: 640,
+                y: 440,
+                text:
+                  lang === 'en'
+                    ? '1. Opening & Scripture\n2. Key Teaching\n3. Prayer & Application'
+                    : '1. Ouverture & Lecture\n2. Enseignement principal\n3. Temps de prière',
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                fontSize: 36,
+                color: '#fde68a',
+                bold: true,
+                italic: false,
+                align: 'center',
+                bgColor: '#000000',
+                bgEnabled: false,
+                shadow: false,
+                rotation: 0,
+                opacity: 1,
+              },
+            ],
+            strokes: [],
+          },
+        ],
+      }));
+      catalogMatches = presCatalog.filter(
         (t) =>
           matchesQuery(t, [t.nameFr, t.nameEn], qNorm, category) &&
           !excludeSet.has(normalizeText(t.nameFr))
@@ -1843,6 +1922,9 @@ export async function searchOnlineStudioTemplates(params: {
       });
       if (studioType === 'design') {
         liveMatches = await generateLiveDesignTemplates(ai, query, lang, page, excludeTitles);
+      } else if (studioType === 'presentation') {
+        const res = await generateLiveDesignTemplates(ai, `${query} presentation 16:9`, lang, page, excludeTitles);
+        liveMatches = res.map((r) => ({ ...r, format: 'landscape' as const }));
       } else if (studioType === 'video') {
         liveMatches = await generateLiveVideoTemplates(ai, query, lang, page, excludeTitles);
       } else {
@@ -1856,8 +1938,20 @@ export async function searchOnlineStudioTemplates(params: {
 
   let merged = [...liveMatches, ...catalogMatches];
   if (merged.length < 4) {
-    const proc = generateProceduralTemplateBatch(studioType, query, category, lang, page, excludeSet);
-    merged = [...merged, ...proc];
+    const proc = generateProceduralTemplateBatch(
+      studioType === 'presentation' ? 'design' : studioType,
+      query,
+      category,
+      lang,
+      page,
+      excludeSet
+    );
+    merged = [
+      ...merged,
+      ...(studioType === 'presentation'
+        ? proc.map((p) => ({ ...p, format: 'landscape' }))
+        : proc),
+    ];
   }
 
   return {

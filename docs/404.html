@@ -21,8 +21,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-Bl-ROxQM.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BDy0gZFI.css">
+    <script type="module" crossorigin src="./assets/index-D0IcS-rl.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DJNUFjnC.css">
   </head>
   <body class="bg-slate-50 dark:bg-[#070e20] text-slate-900 dark:text-slate-100 min-h-screen antialiased">
     <div id="root"></div>
@@ -51,11 +51,15 @@
           var root = document.getElementById('root');
           if (!root || root.childElementCount > 0) return;
           root.innerHTML =
-            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;background:#f8fafc;color:#0b1f42;text-align:center;">' +
-            '<div style="max-width:360px;background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:24px;box-shadow:0 10px 25px rgba(11,31,66,0.08);">' +
-            '<h1 style="margin:0 0 8px;font-size:20px;font-weight:800;">SHALOM</h1>' +
-            '<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#475569;">Le chargement prend plus de temps que prévu. Vérifiez votre connexion puis actualisez.</p>' +
-            '<button id="shalom-recover-btn" type="button" style="background:#1d4ed8;color:#fff;border:0;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;">Actualiser la page</button>' +
+            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:\'Plus Jakarta Sans\',system-ui,sans-serif;background:radial-gradient(circle at 50% 25%, #13294b 0%, #071128 60%, #040916 100%);color:#ffffff;text-align:center;">' +
+            '<div style="max-width:400px;width:100%;background:rgba(10,23,51,0.92);border:1px solid rgba(212,175,55,0.35);border-radius:24px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,0.65);">' +
+            '<img src="./shalom_logo.jpg" alt="SHALOM" style="width:72px;height:72px;border-radius:16px;object-fit:cover;border:2px solid rgba(212,175,55,0.65);margin:0 auto 12px;display:block;" />' +
+            '<h1 style="margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:0.2em;color:#f4d778;">SHALOM</h1>' +
+            '<p style="margin:0 0 16px;font-size:14px;font-style:italic;color:#dbeafe;">« Un instant de paix… »</p>' +
+            '<img src="./shalom_peace_light.jpg" alt="" onerror="this.style.display=\'none\'" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,0.12);margin-bottom:16px;" />' +
+            '<p style="margin:0 0 14px;font-size:13px;line-height:1.55;color:#e2e8f0;">« Nous n\'arrivons pas à établir la connexion pour le moment. Vérifiez votre connexion Internet et réessayez dans quelques instants. »</p>' +
+            '<p style="margin:0 0 18px;padding:10px 14px;border-radius:14px;background:rgba(15,37,79,0.75);border:1px solid rgba(212,175,55,0.28);font-family:Georgia,serif;font-style:italic;font-size:13px;color:#fde68a;">« Je vous laisse la paix, je vous donne ma paix. » — Jean 14:27.</p>' +
+            '<button id="shalom-recover-btn" type="button" style="width:100%;min-height:46px;background:linear-gradient(90deg,#c89d28,#dfb848,#c89d28);color:#071128;border:0;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:800;letter-spacing:0.08em;cursor:pointer;">RÉESSAYER</button>' +
             '</div></div>';
           var btn = document.getElementById('shalom-recover-btn');
           if (btn) {

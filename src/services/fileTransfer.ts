@@ -1,10 +1,19 @@
-// Unified File Import, Android Downloads, MIME Inference, EPUB Reader & Native Bridge Service
+// Unified File Import, Dedicated "SHALOM DOWNLOAD" Folder, Android Share Target & Native Bridge Service
+
+export const SHALOM_DOWNLOAD_FOLDER = 'SHALOM DOWNLOAD';
 
 export interface ShalomAndroidBridge {
   saveBase64ToDownloads?: (
     base64Data: string,
     fileName: string,
-    mimeType: string
+    mimeType: string,
+    subFolder?: string
+  ) => string | boolean;
+  saveBase64ToFolder?: (
+    base64Data: string,
+    fileName: string,
+    mimeType: string,
+    folderName: string
   ) => string | boolean;
   shareBase64File?: (
     base64Data: string,
@@ -15,20 +24,48 @@ export interface ShalomAndroidBridge {
   ) => string | boolean;
   openDownloadedFile?: (fileName: string, mimeType?: string) => boolean;
   getDownloadsFolderLabel?: () => string;
+  chooseShalomFolder?: () => string | boolean;
+  openShalomFolder?: () => boolean;
+  consumePendingSharedFiles?: () => string; // JSON array of { fileName, mimeType, base64Data }
 }
 
 declare global {
   interface Window {
     ShalomAndroid?: ShalomAndroidBridge;
     Android?: ShalomAndroidBridge;
+    __TAURI__?: unknown;
+    __TAURI_INTERNALS__?: unknown;
   }
+}
+
+export type ShalomRuntimeEnv =
+  | 'tauri-desktop'
+  | 'android-bridge'
+  | 'android-webview'
+  | 'iframe'
+  | 'desktop-browser';
+
+export interface VirtualShalomFileEntry {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  locationLabel: string;
+  savedAt: string;
+}
+
+export interface ChooseShalomFolderOutcome {
+  mode: 'tauri' | 'android-saf' | 'native-dir' | 'virtual-fallback';
+  folderLabel: string | null;
+  requiresVirtualExplorer: boolean;
+  reason?: string;
 }
 
 export interface DownloadResult {
   ok: boolean;
   fileName: string;
   sizeBytes: number;
-  method: 'android-native-bridge' | 'browser-download' | 'file-picker';
+  method: 'android-native-bridge' | 'directory-picker' | 'browser-download';
   locationLabel: string;
   error?: string;
 }
@@ -42,7 +79,23 @@ export interface RecentDownloadEntry {
   downloadedAt: string;
 }
 
+export interface PendingSharedFileItem {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  blob: Blob;
+  receivedAt: string;
+  source: 'web-share-target' | 'android-intent';
+}
+
 const RECENT_DOWNLOADS_KEY = 'shalom_recent_downloads_v1';
+const SHARE_INBOX_DB = 'shalom_share_target_db';
+const SHARE_INBOX_STORE = 'pending_shares';
+const FS_HANDLE_DB = 'shalom_fs_handles_v1';
+const FS_HANDLE_STORE = 'handles';
+const FS_DOWNLOAD_HANDLE_KEY = 'shalom_download_root_dir';
+const VIRTUAL_FOLDER_DB = 'shalom_virtual_folder_v1';
+const VIRTUAL_FOLDER_STORE = 'exports';
 
 export function getNativeAndroidBridge(): ShalomAndroidBridge | null {
   if (typeof window === 'undefined') return null;
@@ -66,24 +119,59 @@ export function isAndroidWebView(): boolean {
   return /android/i.test(ua) && (/; wv\)/i.test(ua) || /Version\/\d+\.\d+/i.test(ua));
 }
 
+export function isInsideIframe(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+export function isInsideCrossOriginIframe(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.self === window.top) return false;
+    // Accessing top.location.origin throws DOMException in cross-origin iframes
+    return window.top?.location.origin !== window.location.origin;
+  } catch {
+    return true;
+  }
+}
+
+export function isTauriDesktop(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.__TAURI__ || window.__TAURI_INTERNALS__);
+}
+
+export function detectShalomEnvironment(): ShalomRuntimeEnv {
+  if (isTauriDesktop()) return 'tauri-desktop';
+  if (getNativeAndroidBridge()) return 'android-bridge';
+  if (isAndroidWebView()) return 'android-webview';
+  if (isInsideIframe()) return 'iframe';
+  return 'desktop-browser';
+}
+
 export function getLocalizedDownloadsLabel(isEn = false): string {
   const bridge = getNativeAndroidBridge();
   if (bridge?.getDownloadsFolderLabel) {
     try {
       const label = bridge.getDownloadsFolderLabel();
-      if (label && label.trim()) return label.trim();
+      if (label && label.trim()) {
+        return label.includes(SHALOM_DOWNLOAD_FOLDER)
+          ? label.trim()
+          : `${label.trim()} / ${SHALOM_DOWNLOAD_FOLDER}`;
+      }
     } catch {
       // ignore
     }
   }
-  if (typeof navigator !== 'undefined') {
-    const lang = (navigator.language || '').toLowerCase();
-    if (lang.startsWith('fr')) return 'Téléchargements (Downloads)';
-    if (lang.startsWith('es')) return 'Descargas (Downloads)';
-    if (lang.startsWith('pt')) return 'Transferências / Downloads';
-    if (lang.startsWith('de')) return 'Downloads';
+  if (isAndroidDevice()) {
+    return `Downloads / ${SHALOM_DOWNLOAD_FOLDER}`;
   }
-  return isEn ? 'Downloads' : 'Téléchargements / Downloads';
+  return isEn
+    ? `Downloads / ${SHALOM_DOWNLOAD_FOLDER}`
+    : `Téléchargements / ${SHALOM_DOWNLOAD_FOLDER}`;
 }
 
 const EXTENSION_MIME_MAP: Record<string, string> = {
@@ -143,7 +231,6 @@ export function sanitizeFileName(rawName: string, fallbackBase = 'fichier_shalom
   let base = lastDot > 0 ? trimmed.slice(0, lastDot) : trimmed;
   let ext = lastDot > 0 ? trimmed.slice(lastDot + 1) : fallbackExt.replace(/^\./, '');
 
-  // Strip only OS-forbidden characters while keeping accents, spaces, hyphens, parentheses
   base = base
     .replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
     .replace(/\s+/g, ' ')
@@ -184,6 +271,16 @@ export async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
+function base64ToBlob(base64Data: string, mimeType: string): Blob {
+  const cleanB64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+  const byteChars = atob(cleanB64);
+  const byteNums = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNums[i] = byteChars.charCodeAt(i);
+  }
+  return new Blob([byteNums], { type: mimeType || 'application/octet-stream' });
+}
+
 export function getRecentDownloads(): RecentDownloadEntry[] {
   try {
     const raw = localStorage.getItem(RECENT_DOWNLOADS_KEY);
@@ -198,11 +295,300 @@ export function getRecentDownloads(): RecentDownloadEntry[] {
 function recordRecentDownload(entry: RecentDownloadEntry) {
   try {
     const prev = getRecentDownloads();
-    const next = [entry, ...prev.filter((e) => e.fileName !== entry.fileName)].slice(0, 20);
+    const next = [entry, ...prev.filter((e) => e.fileName !== entry.fileName)].slice(0, 25);
     localStorage.setItem(RECENT_DOWNLOADS_KEY, JSON.stringify(next));
   } catch {
     // ignore storage errors
   }
+}
+
+// Optional Desktop / Chrome File System Access persistence for exact "SHALOM DOWNLOAD" subfolder
+type DirHandleLike = {
+  name: string;
+  queryPermission?: (opts: { mode: 'readwrite' }) => Promise<'granted' | 'denied' | 'prompt'>;
+  requestPermission?: (opts: { mode: 'readwrite' }) => Promise<'granted' | 'denied' | 'prompt'>;
+  getDirectoryHandle: (name: string, opts?: { create?: boolean }) => Promise<DirHandleLike>;
+  getFileHandle: (name: string, opts?: { create?: boolean }) => Promise<{
+    createWritable: () => Promise<{
+      write: (data: Blob) => Promise<void>;
+      close: () => Promise<void>;
+    }>;
+  }>;
+};
+
+async function openHandleDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return null;
+  return new Promise((resolve) => {
+    const req = indexedDB.open(FS_HANDLE_DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(FS_HANDLE_STORE)) {
+        req.result.createObjectStore(FS_HANDLE_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function getPersistedShalomDownloadDir(): Promise<DirHandleLike | null> {
+  try {
+    const db = await openHandleDb();
+    if (!db) return null;
+    const handle = await new Promise<DirHandleLike | null>((resolve) => {
+      const tx = db.transaction(FS_HANDLE_STORE, 'readonly');
+      const req = tx.objectStore(FS_HANDLE_STORE).get(FS_DOWNLOAD_HANDLE_KEY);
+      req.onsuccess = () => resolve((req.result as { handle?: DirHandleLike } | undefined)?.handle || null);
+      req.onerror = () => resolve(null);
+    });
+    if (!handle) return null;
+    if (handle.queryPermission) {
+      const perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') return null;
+    }
+    return handle;
+  } catch {
+    return null;
+  }
+}
+
+async function openVirtualFolderDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return null;
+  return new Promise((resolve) => {
+    const req = indexedDB.open(VIRTUAL_FOLDER_DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(VIRTUAL_FOLDER_STORE)) {
+        req.result.createObjectStore(VIRTUAL_FOLDER_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+export async function saveBlobToVirtualShalomFolder(
+  blob: Blob,
+  fileName: string,
+  mimeType: string,
+  locationLabel: string
+): Promise<void> {
+  try {
+    if (!blob || blob.size === 0 || blob.size > 60 * 1024 * 1024) return;
+    const db = await openVirtualFolderDb();
+    if (!db) return;
+    const buffer = await blob.arrayBuffer();
+    const id = `vsh_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(VIRTUAL_FOLDER_STORE, 'readwrite');
+      const store = tx.objectStore(VIRTUAL_FOLDER_STORE);
+      store.put({
+        id,
+        fileName,
+        mimeType,
+        sizeBytes: buffer.byteLength,
+        locationLabel,
+        savedAt: new Date().toISOString(),
+        buffer,
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // non-fatal mirror cache failure
+  }
+}
+
+export async function listVirtualShalomFiles(): Promise<VirtualShalomFileEntry[]> {
+  try {
+    const db = await openVirtualFolderDb();
+    if (!db) return [];
+    const items = await new Promise<Array<VirtualShalomFileEntry & { buffer?: ArrayBuffer }>>(
+      (resolve) => {
+        const tx = db.transaction(VIRTUAL_FOLDER_STORE, 'readonly');
+        const req = tx.objectStore(VIRTUAL_FOLDER_STORE).getAll();
+        req.onsuccess = () => resolve((req.result as never[]) || []);
+        req.onerror = () => resolve([]);
+      }
+    );
+    return items
+      .map((item) => ({
+        id: item.id,
+        fileName: item.fileName,
+        mimeType: item.mimeType,
+        sizeBytes: item.sizeBytes,
+        locationLabel: item.locationLabel,
+        savedAt: item.savedAt,
+      }))
+      .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+  } catch {
+    return [];
+  }
+}
+
+export async function getVirtualShalomFileBlob(
+  id: string
+): Promise<{ blob: Blob; entry: VirtualShalomFileEntry } | null> {
+  try {
+    const db = await openVirtualFolderDb();
+    if (!db) return null;
+    const rec = await new Promise<
+      (VirtualShalomFileEntry & { buffer?: ArrayBuffer }) | null
+    >((resolve) => {
+      const tx = db.transaction(VIRTUAL_FOLDER_STORE, 'readonly');
+      const req = tx.objectStore(VIRTUAL_FOLDER_STORE).get(id);
+      req.onsuccess = () => resolve((req.result as never) || null);
+      req.onerror = () => resolve(null);
+    });
+    if (!rec || !rec.buffer) return null;
+    return {
+      blob: new Blob([rec.buffer], { type: rec.mimeType || 'application/octet-stream' }),
+      entry: {
+        id: rec.id,
+        fileName: rec.fileName,
+        mimeType: rec.mimeType,
+        sizeBytes: rec.sizeBytes,
+        locationLabel: rec.locationLabel,
+        savedAt: rec.savedAt,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteVirtualShalomFile(id: string): Promise<void> {
+  try {
+    const db = await openVirtualFolderDb();
+    if (!db) return;
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(VIRTUAL_FOLDER_STORE, 'readwrite');
+      tx.objectStore(VIRTUAL_FOLDER_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // ignore
+  }
+}
+
+export async function chooseShalomDownloadDirectory(): Promise<ChooseShalomFolderOutcome> {
+  const env = detectShalomEnvironment();
+
+  // 1. Android Native Bridge (SAF / Download/SHALOM DOWNLOAD)
+  const bridge = getNativeAndroidBridge();
+  if (bridge?.chooseShalomFolder) {
+    try {
+      const res = bridge.chooseShalomFolder();
+      if (res === true || (typeof res === 'string' && res.trim() && res !== 'false')) {
+        return {
+          mode: 'android-saf',
+          folderLabel:
+            typeof res === 'string' && res !== 'true'
+              ? res
+              : `Downloads / ${SHALOM_DOWNLOAD_FOLDER}`,
+          requiresVirtualExplorer: false,
+        };
+      }
+    } catch {
+      // fall through safely
+    }
+  }
+  if (env === 'android-webview' || env === 'android-bridge') {
+    if (bridge?.openShalomFolder) {
+      try {
+        bridge.openShalomFolder();
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      mode: 'android-saf',
+      folderLabel: `Downloads / ${SHALOM_DOWNLOAD_FOLDER}`,
+      requiresVirtualExplorer: true,
+      reason: 'Accès rapide aux fichiers exportés dans Téléchargements / SHALOM DOWNLOAD.',
+    };
+  }
+
+  // 2. Cross-origin iframe safety check — NEVER invoke showDirectoryPicker inside cross-origin iframe
+  if (isInsideIframe()) {
+    return {
+      mode: 'virtual-fallback',
+      folderLabel: null,
+      requiresVirtualExplorer: true,
+      reason:
+        'Mode aperçu intégré : l’explorateur interne « DOSSIER SHALOM » conserve vos exports en IndexedDB avec téléchargement direct.',
+    };
+  }
+
+  // 3. Desktop File System Access API (Chrome / Edge / Tauri WebView desktop)
+  const win = window as unknown as {
+    showDirectoryPicker?: (opts?: {
+      id?: string;
+      mode?: 'readwrite';
+      startIn?: string;
+    }) => Promise<DirHandleLike>;
+  };
+
+  if (typeof win.showDirectoryPicker === 'function') {
+    try {
+      const picked = await win.showDirectoryPicker({
+        id: 'shalom-download-root',
+        mode: 'readwrite',
+        startIn: 'downloads',
+      });
+      const shalomDir =
+        picked.name.toUpperCase() === SHALOM_DOWNLOAD_FOLDER
+          ? picked
+          : await picked.getDirectoryHandle(SHALOM_DOWNLOAD_FOLDER, { create: true });
+      const db = await openHandleDb();
+      if (db) {
+        await new Promise<void>((resolve) => {
+          const tx = db.transaction(FS_HANDLE_STORE, 'readwrite');
+          tx.objectStore(FS_HANDLE_STORE).put({ id: FS_DOWNLOAD_HANDLE_KEY, handle: shalomDir });
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        });
+      }
+      return {
+        mode: env === 'tauri-desktop' ? 'tauri' : 'native-dir',
+        folderLabel: `${picked.name}/${SHALOM_DOWNLOAD_FOLDER}`,
+        requiresVirtualExplorer: false,
+      };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return {
+          mode: 'native-dir',
+          folderLabel: null,
+          requiresVirtualExplorer: false,
+        };
+      }
+      // SecurityError / NotAllowedError fallback cleanly into virtual SHALOM explorer
+      return {
+        mode: 'virtual-fallback',
+        folderLabel: null,
+        requiresVirtualExplorer: true,
+        reason:
+          'Accès dossier système refusé par le navigateur : ouverture de l’explorateur interne « DOSSIER SHALOM ».',
+      };
+    }
+  }
+
+  // 4. Fallback for Firefox / Safari / non-FSA browsers
+  return {
+    mode: 'virtual-fallback',
+    folderLabel: null,
+    requiresVirtualExplorer: true,
+    reason:
+      'Votre navigateur gère les téléchargements automatiquement. Retrouvez et gérez vos exports dans l’explorateur « DOSSIER SHALOM ».',
+  };
+}
+
+export function supportsDirectorySelection(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'showDirectoryPicker' in window &&
+    !isAndroidWebView() &&
+    !isInsideIframe()
+  );
 }
 
 export async function downloadBlobToDevice(
@@ -225,25 +611,32 @@ export async function downloadBlobToDevice(
     };
   }
 
-  // Ensure non-empty unique filename against recent downloads in session
   const recentNames = getRecentDownloads().map((r) => r.fileName);
   const finalName = resolveUniqueFileName(cleanName, recentNames);
 
-  // 1. Check Native Android WebView Bridge (Website 2 APK / Custom Android Wrapper)
+  // 1. Native Android Bridge -> dedicated "Download/SHALOM DOWNLOAD/" folder via MediaStore
   const bridge = getNativeAndroidBridge();
-  if (bridge?.saveBase64ToDownloads) {
+  if (bridge?.saveBase64ToFolder || bridge?.saveBase64ToDownloads) {
     try {
       const b64 = await blobToBase64(blob);
-      const res = bridge.saveBase64ToDownloads(b64, finalName, mimeType);
+      const res = bridge.saveBase64ToFolder
+        ? bridge.saveBase64ToFolder(b64, finalName, mimeType, SHALOM_DOWNLOAD_FOLDER)
+        : bridge.saveBase64ToDownloads!(b64, finalName, mimeType, SHALOM_DOWNLOAD_FOLDER);
+
       const succeeded =
         res === true || (typeof res === 'string' && res !== 'false' && !res.startsWith('ERROR:'));
       if (succeeded) {
+        const finalLoc =
+          typeof res === 'string' && res.trim() && res !== 'true'
+            ? res
+            : `Download / ${SHALOM_DOWNLOAD_FOLDER}`;
+        await saveBlobToVirtualShalomFolder(blob, finalName, mimeType, finalLoc);
         recordRecentDownload({
           id: `dl_${Date.now()}`,
           fileName: finalName,
           mimeType,
           sizeBytes: blob.size,
-          locationLabel,
+          locationLabel: finalLoc,
           downloadedAt: new Date().toISOString(),
         });
         return {
@@ -251,7 +644,7 @@ export async function downloadBlobToDevice(
           fileName: finalName,
           sizeBytes: blob.size,
           method: 'android-native-bridge',
-          locationLabel: typeof res === 'string' && res.trim() && res !== 'true' ? res : locationLabel,
+          locationLabel: finalLoc,
         };
       }
     } catch (err) {
@@ -266,10 +659,40 @@ export async function downloadBlobToDevice(
     }
   }
 
-  // 2. Standard browser / PWA / Android Chrome DownloadManager flow
-  // IMPORTANT: Delay URL.revokeObjectURL by 30s so Android DownloadManager can finish reading the blob
+  // 2. Desktop File System Access handle if user selected their SHALOM DOWNLOAD folder
+  try {
+    const dirHandle = await getPersistedShalomDownloadDir();
+    if (dirHandle) {
+      const fileHandle = await dirHandle.getFileHandle(finalName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      const folderPath = `${SHALOM_DOWNLOAD_FOLDER}/${finalName}`;
+      await saveBlobToVirtualShalomFolder(blob, finalName, mimeType, folderPath);
+      recordRecentDownload({
+        id: `dl_${Date.now()}`,
+        fileName: finalName,
+        mimeType,
+        sizeBytes: blob.size,
+        locationLabel: folderPath,
+        downloadedAt: new Date().toISOString(),
+      });
+      return {
+        ok: true,
+        fileName: finalName,
+        sizeBytes: blob.size,
+        method: 'directory-picker',
+        locationLabel: folderPath,
+      };
+    }
+  } catch {
+    // Fall back to standard browser DownloadManager
+  }
+
+  // 3. Standard browser / PWA / Android Chrome DownloadManager flow + IndexedDB virtual folder mirror
   try {
     const typedBlob = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+    await saveBlobToVirtualShalomFolder(typedBlob, finalName, mimeType, locationLabel);
     const url = URL.createObjectURL(typedBlob);
     const link = document.createElement('a');
     link.href = url;
@@ -334,7 +757,6 @@ export async function readFileAsVerifiedBlob(file: File): Promise<{
     );
   }
 
-  // Read full ArrayBuffer right away so Android content:// URI permissions cannot expire mid-import
   let buffer: ArrayBuffer;
   try {
     buffer = await file.arrayBuffer();
@@ -355,6 +777,112 @@ export async function readFileAsVerifiedBlob(file: File): Promise<{
     mimeType,
     sizeBytes: buffer.byteLength,
   };
+}
+
+// =========================================================================
+// ANDROID SHARE TARGET & WEB SHARE INBOX QUEUE (Coffres des Partages)
+// =========================================================================
+
+export async function consumePendingSharedFiles(): Promise<PendingSharedFileItem[]> {
+  const results: PendingSharedFileItem[] = [];
+
+  // 1. Check Native Android Intent Bridge (ACTION_SEND / ACTION_VIEW)
+  const bridge = getNativeAndroidBridge();
+  if (bridge?.consumePendingSharedFiles) {
+    try {
+      const rawJson = bridge.consumePendingSharedFiles();
+      const arr = JSON.parse(rawJson || '[]') as Array<{
+        fileName?: string;
+        mimeType?: string;
+        base64Data?: string;
+      }>;
+      if (Array.isArray(arr)) {
+        arr.forEach((item, idx) => {
+          if (!item.base64Data) return;
+          const fileName = sanitizeFileName(item.fileName || `partage_android_${idx + 1}`);
+          const mimeType = inferMimeType(fileName, item.mimeType);
+          const blob = base64ToBlob(item.base64Data, mimeType);
+          if (blob.size > 0) {
+            results.push({
+              id: `intent_${Date.now()}_${idx}`,
+              fileName,
+              mimeType,
+              blob,
+              receivedAt: new Date().toISOString(),
+              source: 'android-intent',
+            });
+          }
+        });
+      }
+    } catch {
+      // ignore invalid bridge payload
+    }
+  }
+
+  // 2. Check PWA Web Share Target Queue populated by sw.js
+  if (typeof indexedDB !== 'undefined') {
+    try {
+      const db = await new Promise<IDBDatabase | null>((resolve) => {
+        const req = indexedDB.open(SHARE_INBOX_DB, 1);
+        req.onupgradeneeded = () => {
+          if (!req.result.objectStoreNames.contains(SHARE_INBOX_STORE)) {
+            req.result.createObjectStore(SHARE_INBOX_STORE, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+
+      if (db) {
+        const stored = await new Promise<
+          Array<{
+            id: string;
+            fileName: string;
+            mimeType: string;
+            buffer?: ArrayBuffer;
+            blob?: Blob;
+            receivedAt: string;
+          }>
+        >((resolve) => {
+          const tx = db.transaction(SHARE_INBOX_STORE, 'readonly');
+          const req = tx.objectStore(SHARE_INBOX_STORE).getAll();
+          req.onsuccess = () => resolve((req.result as never[]) || []);
+          req.onerror = () => resolve([]);
+        });
+
+        if (stored.length > 0) {
+          for (const entry of stored) {
+            const blob = entry.buffer
+              ? new Blob([entry.buffer], { type: entry.mimeType || 'application/octet-stream' })
+              : entry.blob instanceof Blob
+                ? entry.blob
+                : null;
+            if (blob && blob.size > 0) {
+              results.push({
+                id: entry.id,
+                fileName: sanitizeFileName(entry.fileName || 'fichier_partage'),
+                mimeType: inferMimeType(entry.fileName || '', entry.mimeType),
+                blob,
+                receivedAt: entry.receivedAt || new Date().toISOString(),
+                source: 'web-share-target',
+              });
+            }
+          }
+          // Clear inbox after reading
+          await new Promise<void>((resolve) => {
+            const tx = db.transaction(SHARE_INBOX_STORE, 'readwrite');
+            tx.objectStore(SHARE_INBOX_STORE).clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          });
+        }
+      }
+    } catch {
+      // ignore IndexedDB share queue errors
+    }
+  }
+
+  return results;
 }
 
 // Lightweight Pure-TS ZIP/EPUB text extractor using standard DecompressionStream('deflate-raw')
@@ -382,7 +910,6 @@ interface ZipEntry {
 
 function parseZipCentralDirectory(bytes: Uint8Array): ZipEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  // Find End of Central Directory (0x06054b50) scanning backwards from end
   let eocdOffset = -1;
   const minOffset = Math.max(0, bytes.length - 65557);
   for (let i = bytes.length - 22; i >= minOffset; i--) {
@@ -431,12 +958,8 @@ async function readZipEntryBytes(bytes: Uint8Array, entry: ZipEntry): Promise<Ui
   const dataStart = off + 30 + nameLen + extraLen;
   const slice = bytes.subarray(dataStart, dataStart + entry.compressedSize);
 
-  if (entry.compressionMethod === 0) {
-    return slice;
-  }
-  if (entry.compressionMethod === 8) {
-    return inflateRawBytes(slice);
-  }
+  if (entry.compressionMethod === 0) return slice;
+  if (entry.compressionMethod === 8) return inflateRawBytes(slice);
   return null;
 }
 

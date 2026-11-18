@@ -15,7 +15,6 @@ import {
   Target,
   CheckSquare,
   Square,
-  Smartphone,
 } from 'lucide-react';
 import { useShalomDB } from '../../hooks/useShalomDB';
 import { dbService, STORES } from '../../services/db';
@@ -30,7 +29,6 @@ import {
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { SocialShareModal } from '../common/SocialShareModal';
-import { DeviceContactImportModal } from '../contacts/DeviceContactImportModal';
 import { SharePayload, formatPrayerShareText } from '../../services/socialShare';
 import {
   MediaPickerBox,
@@ -112,7 +110,6 @@ export const AltarModule: React.FC = () => {
 
   // Intercession person modal
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
-  const [isDeviceImportOpen, setIsDeviceImportOpen] = useState(false);
   const [personName, setPersonName] = useState('');
   const [personContactId, setPersonContactId] = useState('');
   const [personRelation, setPersonRelation] = useState('');
@@ -977,14 +974,6 @@ export const AltarModule: React.FC = () => {
               <div className="flex flex-wrap items-center justify-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setIsDeviceImportOpen(true)}
-                  className="min-h-[44px] px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-sm"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span>Ajouter depuis mes contacts</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setIsPersonModalOpen(true)}
                   className="min-h-[44px] px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-sm"
                 >
@@ -1007,14 +996,6 @@ export const AltarModule: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsDeviceImportOpen(true)}
-                    className="min-h-[40px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5"
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    <span>Ajouter depuis mes contacts</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => setIsPersonModalOpen(true)}
@@ -1613,16 +1594,8 @@ export const AltarModule: React.FC = () => {
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <label className="block font-semibold">
-                {isEn ? 'Pick from my contacts (optional)' : 'Choisir dans mes contacts (facultatif)'}
+                {isEn ? 'Pick from my SHALOM contacts (optional)' : 'Choisir dans mes contacts SHALOM (facultatif)'}
               </label>
-              <button
-                type="button"
-                onClick={() => setIsDeviceImportOpen(true)}
-                className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Ajouter depuis mes contacts</span>
-              </button>
             </div>
             {contacts.length > 0 && (
               <select
@@ -1806,21 +1779,6 @@ export const AltarModule: React.FC = () => {
         isOpen={!!sharePayload}
         onClose={() => setSharePayload(null)}
         payload={sharePayload}
-      />
-
-      <DeviceContactImportModal
-        isOpen={isDeviceImportOpen}
-        onClose={() => setIsDeviceImportOpen(false)}
-        existingContacts={contacts}
-        onImported={(imported) => {
-          reloadData();
-          if (imported.length > 0) {
-            const first = imported[0];
-            setPersonContactId(first.id);
-            setPersonName(`${first.firstName} ${first.lastName}`.trim());
-            setIsPersonModalOpen(true);
-          }
-        }}
       />
     </div>
   );

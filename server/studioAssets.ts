@@ -1,4 +1,3 @@
-import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import net from 'node:net';
 
 export type CreativeAssetType = 'elements' | 'images' | 'backgrounds';
@@ -9,10 +8,11 @@ export interface OnlineCreativeAsset {
   title: string;
   previewUrl: string;
   fullUrl: string;
-  svgMarkup?: string;
+  mimeType: string;
+  isBitmap: true;
   width?: number;
   height?: number;
-  source: 'iconify' | 'wikimedia' | 'openverse' | 'gemini-svg' | 'gradient-pack';
+  source: 'wikimedia' | 'openverse';
   author?: string;
   license?: string;
 }
@@ -57,6 +57,11 @@ const ENGLISH_HINTS: Record<string, string> = {
   noeud: 'ribbon',
   cadre: 'frame',
   banniere: 'banner',
+  olivier: 'olive branch',
+  agneau: 'lamb',
+  calice: 'chalice',
+  harpe: 'harp',
+  trompette: 'trumpet',
 };
 
 function translateHintForSearch(rawQuery: string): string {
@@ -65,10 +70,24 @@ function translateHintForSearch(rawQuery: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
-  if (!clean) return 'faith light';
+  if (!clean) return 'dove light peace';
   const words = clean.split(/\s+/).filter(Boolean);
   const mapped = words.map((w) => ENGLISH_HINTS[w] || w);
   return mapped.join(' ');
+}
+
+function isStrictBitmapUrlAndMime(url: string, mime?: string): boolean {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('.svg') || lowerUrl.startsWith('data:image/svg')) return false;
+  if (!mime) return true;
+  const lowerMime = mime.toLowerCase();
+  if (lowerMime.includes('svg')) return false;
+  return (
+    lowerMime.includes('png') ||
+    lowerMime.includes('jpeg') ||
+    lowerMime.includes('jpg') ||
+    lowerMime.includes('webp')
+  );
 }
 
 function isBlockedPrivateHost(hostname: string): boolean {
@@ -91,14 +110,22 @@ function isBlockedPrivateHost(hostname: string): boolean {
     if (parts[0] === 169 && parts[1] === 254) return true;
   }
   if (ipType === 6) {
-    if (lower === '::1' || lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) {
+    if (
+      lower === '::1' ||
+      lower.startsWith('fe80:') ||
+      lower.startsWith('fc') ||
+      lower.startsWith('fd')
+    ) {
       return true;
     }
   }
   return false;
 }
 
-export async function proxySafeAssetImage(rawUrl: string): Promise<{
+export async function proxySafeMediaAsset(
+  rawUrl: string,
+  allowedPrefix: 'image' | 'any' = 'any'
+): Promise<{
   buffer: Buffer;
   contentType: string;
 }> {
@@ -116,169 +143,84 @@ export async function proxySafeAssetImage(rawUrl: string): Promise<{
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 9000);
+  const timeout = setTimeout(() => controller.abort(), 14000);
   try {
     const resp = await fetch(parsed.toString(), {
       signal: controller.signal,
       headers: {
         'User-Agent': 'SHALOM-Studio/1.0 (https://shalom.app)',
-        Accept: 'image/webp,image/png,image/jpeg,image/svg+xml,image/*;q=0.8',
+        Accept:
+          allowedPrefix === 'image'
+            ? 'image/webp,image/png,image/jpeg,image/*;q=0.8'
+            : 'image/*,audio/*,video/*,application/ogg;q=0.8,*/*;q=0.5',
       },
     });
     if (!resp.ok) {
       throw new Error(`HTTP ${resp.status}`);
     }
-    const contentType = resp.headers.get('content-type') || 'application/octet-stream';
-    if (!contentType.toLowerCase().startsWith('image/')) {
-      throw new Error('Le fichier distant n’est pas une image valide');
+    const contentType = (resp.headers.get('content-type') || 'application/octet-stream')
+      .split(';')[0]
+      .trim()
+      .toLowerCase();
+
+    if (allowedPrefix === 'image') {
+      if (!contentType.startsWith('image/') || contentType.includes('svg')) {
+        throw new Error('Le fichier distant n’est pas une image matricielle valide (PNG/JPG/WebP)');
+      }
+    } else if (
+      !contentType.startsWith('image/') &&
+      !contentType.startsWith('audio/') &&
+      !contentType.startsWith('video/') &&
+      contentType !== 'application/ogg' &&
+      contentType !== 'application/octet-stream'
+    ) {
+      throw new Error('Type de média distant non pris en charge');
     }
+
+    const maxBytes = allowedPrefix === 'image' ? 12 * 1024 * 1024 : 28 * 1024 * 1024;
     const contentLength = Number(resp.headers.get('content-length') || 0);
-    if (contentLength > 12 * 1024 * 1024) {
-      throw new Error('Image trop volumineuse (max 12 Mo)');
+    if (contentLength > maxBytes) {
+      throw new Error('Média trop volumineux');
     }
     const ab = await resp.arrayBuffer();
-    if (ab.byteLength > 12 * 1024 * 1024) {
-      throw new Error('Image trop volumineuse (max 12 Mo)');
+    if (ab.byteLength === 0 || ab.byteLength > maxBytes) {
+      throw new Error('Média vide ou trop volumineux');
     }
     return {
       buffer: Buffer.from(ab),
-      contentType: contentType.split(';')[0].trim(),
+      contentType: contentType || 'application/octet-stream',
     };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-function sanitizeSvgMarkup(rawSvg: string): string | null {
-  const trimmed = rawSvg.trim();
-  if (!trimmed.toLowerCase().includes('<svg')) return null;
-  // Strip any script tags or inline event handlers for strict safety
-  const clean = trimmed
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/\son[a-z]+\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, '');
-  return clean;
+export async function proxySafeAssetImage(rawUrl: string): Promise<{
+  buffer: Buffer;
+  contentType: string;
+}> {
+  return proxySafeMediaAsset(rawUrl, 'image');
 }
 
-async function fetchIconifyElements(
-  query: string,
-  page: number
-): Promise<OnlineCreativeAsset[]> {
-  const searchTerms = translateHintForSearch(query);
-  const start = Math.max(0, (page - 1) * 18);
-  const url = `https://api.iconify.design/search?query=${encodeURIComponent(
-    searchTerms
-  )}&limit=18&start=${start}`;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: 'application/json', 'User-Agent': 'SHALOM-Studio/1.0' },
-    });
-    if (!resp.ok) return [];
-    const data = (await resp.json()) as { icons?: string[] };
-    const icons = Array.isArray(data.icons) ? data.icons : [];
-    return icons.map((iconName, idx) => {
-      const [prefix, name] = iconName.split(':');
-      const svgUrl = `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(
-        name
-      )}.svg?height=256`;
-      return {
-        id: `ico_${page}_${idx}_${iconName.replace(/[^a-z0-9]/gi, '_')}`,
-        assetType: 'elements',
-        title: name.replace(/-/g, ' '),
-        previewUrl: svgUrl,
-        fullUrl: svgUrl,
-        source: 'iconify',
-        license: 'Open Source Iconify',
-      };
-    });
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function generateGeminiSvgElements(
+async function fetchWikimediaBitmaps(
   query: string,
   page: number,
-  lang: 'fr' | 'en'
-): Promise<OnlineCreativeAsset[]> {
-  if (!process.env.GEMINI_API_KEY) return [];
-  try {
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    });
-    const seedHint = page > 1 ? ` (variation créative lot #${page}, styles variés)` : '';
-    const response = await ai.models.generateContent({
-      model: 'gemini-4-hydrogen',
-      contents: `Crée 4 éléments graphiques SVG vectoriels nets et propres (viewBox="0 0 256 256") correspondant à la recherche : "${
-        query || 'spiritual light, cross, dove, ornament'
-      }"${seedHint}. Langue : ${lang === 'en' ? 'English' : 'Français'}.`,
-      config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        systemInstruction:
-          'Tu génères des icônes, autocollants et ornements SVG valides avec viewBox="0 0 256 256", des formes géométriques propres, des couleurs harmonieuses et sans balise script.',
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              svg: { type: Type.STRING },
-            },
-          },
-        },
-      },
-    });
-
-    const parsed = JSON.parse((response.text ?? '[]').trim()) as Array<{
-      title?: string;
-      svg?: string;
-    }>;
-    if (!Array.isArray(parsed)) return [];
-    const results: OnlineCreativeAsset[] = [];
-    parsed.slice(0, 4).forEach((item, idx) => {
-      const clean = item.svg ? sanitizeSvgMarkup(item.svg) : null;
-      if (!clean) return;
-      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}`;
-      results.push({
-        id: `gem_svg_${page}_${Date.now()}_${idx}`,
-        assetType: 'elements',
-        title: String(item.title || `Élément ${idx + 1}`),
-        previewUrl: dataUrl,
-        fullUrl: dataUrl,
-        svgMarkup: clean,
-        source: 'gemini-svg',
-      });
-    });
-    return results;
-  } catch {
-    return [];
-  }
-}
-
-async function fetchWikimediaImages(
-  query: string,
-  page: number,
-  assetType: 'images' | 'backgrounds'
+  assetType: CreativeAssetType
 ): Promise<OnlineCreativeAsset[]> {
   const baseQuery = translateHintForSearch(query);
   const effectiveQuery =
-    assetType === 'backgrounds' && !baseQuery.includes('background') && !baseQuery.includes('texture')
-      ? `${baseQuery} sky light texture`
-      : baseQuery;
-  const offset = Math.max(0, (page - 1) * 12);
+    assetType === 'elements'
+      ? `${baseQuery} png filetype:bitmap`
+      : assetType === 'backgrounds' && !baseQuery.includes('background') && !baseQuery.includes('texture')
+        ? `${baseQuery} sky light texture filetype:bitmap`
+        : `${baseQuery} filetype:bitmap`;
+  const offset = Math.max(0, (page - 1) * 14);
   const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(
-    `${effectiveQuery} filetype:bitmap`
-  )}&gsrlimit=12&gsroffset=${offset}&prop=imageinfo&iiprop=url|mime|size|extmetadata&iiurlwidth=1080&format=json&origin=*`;
+    effectiveQuery
+  )}&gsrlimit=14&gsroffset=${offset}&prop=imageinfo&iiprop=url|mime|size|extmetadata&iiurlwidth=1080&format=json&origin=*`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5500);
+  const timeout = setTimeout(() => controller.abort(), 6000);
   try {
     const resp = await fetch(url, {
       signal: controller.signal,
@@ -298,6 +240,10 @@ async function fetchWikimediaImages(
               mime?: string;
               width?: number;
               height?: number;
+              extmetadata?: {
+                Artist?: { value?: string };
+                LicenseShortName?: { value?: string };
+              };
             }>;
           }
         >;
@@ -309,20 +255,27 @@ async function fetchWikimediaImages(
       const info = p.imageinfo?.[0];
       if (!info) continue;
       const mime = (info.mime || '').toLowerCase();
-      if (!mime.includes('jpeg') && !mime.includes('png') && !mime.includes('webp')) continue;
       const chosenUrl = info.thumburl || info.url;
       if (!chosenUrl || !chosenUrl.startsWith('https://')) continue;
+      if (!isStrictBitmapUrlAndMime(chosenUrl, mime)) continue;
+
       const cleanTitle = p.title.replace(/^File:/i, '').replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+      const rawArtist = info.extmetadata?.Artist?.value?.replace(/<[^>]+>/g, '').trim();
+      const rawLicense = info.extmetadata?.LicenseShortName?.value?.replace(/<[^>]+>/g, '').trim();
+
       items.push({
         id: `wm_${assetType}_${page}_${p.pageid}`,
         assetType,
-        title: cleanTitle.slice(0, 60),
+        title: cleanTitle.slice(0, 64),
         previewUrl: chosenUrl,
-        fullUrl: chosenUrl,
+        fullUrl: info.url && info.url.startsWith('https://') && isStrictBitmapUrlAndMime(info.url, mime) ? info.url : chosenUrl,
+        mimeType: mime || 'image/png',
+        isBitmap: true,
         width: info.width,
         height: info.height,
         source: 'wikimedia',
-        license: 'Wikimedia Commons',
+        author: rawArtist ? rawArtist.slice(0, 48) : undefined,
+        license: rawLicense || 'Wikimedia Commons',
       });
     }
     return items;
@@ -333,18 +286,24 @@ async function fetchWikimediaImages(
   }
 }
 
-async function fetchOpenverseImages(
+async function fetchOpenverseBitmaps(
   query: string,
   page: number,
-  assetType: 'images' | 'backgrounds'
+  assetType: CreativeAssetType
 ): Promise<OnlineCreativeAsset[]> {
   const baseQuery = translateHintForSearch(query);
+  const extraParams =
+    assetType === 'elements'
+      ? '&extension=png'
+      : assetType === 'backgrounds'
+        ? '&aspect_ratio=wide,square'
+        : '';
   const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(
     baseQuery
-  )}&page=${page}&page_size=12`;
+  )}&page=${page}&page_size=14${extraParams}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5500);
+  const timeout = setTimeout(() => controller.abort(), 6000);
   try {
     const resp = await fetch(url, {
       signal: controller.signal,
@@ -362,74 +321,51 @@ async function fetchOpenverseImages(
         thumbnail?: string;
         creator?: string;
         license?: string;
+        filetype?: string;
         width?: number;
         height?: number;
       }>;
     };
     const results = Array.isArray(data.results) ? data.results : [];
     return results
-      .filter((r) => r.url && r.url.startsWith('https://'))
-      .map((r) => ({
-        id: `ov_${assetType}_${page}_${r.id}`,
-        assetType,
-        title: (r.title || baseQuery).slice(0, 60),
-        previewUrl: r.thumbnail && r.thumbnail.startsWith('https://') ? r.thumbnail : r.url!,
-        fullUrl: r.url!,
-        width: r.width,
-        height: r.height,
-        source: 'openverse',
-        author: r.creator,
-        license: r.license,
-      }));
+      .filter((r) => {
+        if (!r.url || !r.url.startsWith('https://')) return false;
+        const ft = (r.filetype || '').toLowerCase();
+        if (ft.includes('svg')) return false;
+        return isStrictBitmapUrlAndMime(r.url);
+      })
+      .map((r) => {
+        const lower = (r.url || '').toLowerCase();
+        const ft = (r.filetype || '').toLowerCase();
+        const mime =
+          ft === 'png' || lower.includes('.png')
+            ? 'image/png'
+            : ft === 'webp' || lower.includes('.webp')
+              ? 'image/webp'
+              : 'image/jpeg';
+        return {
+          id: `ov_${assetType}_${page}_${r.id}`,
+          assetType,
+          title: (r.title || baseQuery).slice(0, 64),
+          previewUrl:
+            r.thumbnail && r.thumbnail.startsWith('https://') && !r.thumbnail.toLowerCase().includes('.svg')
+              ? r.thumbnail
+              : r.url!,
+          fullUrl: r.url!,
+          mimeType: mime,
+          isBitmap: true as const,
+          width: r.width,
+          height: r.height,
+          source: 'openverse' as const,
+          author: r.creator,
+          license: r.license,
+        };
+      });
   } catch {
     return [];
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function buildProceduralSvgBackgrounds(query: string, page: number): OnlineCreativeAsset[] {
-  const palettes = [
-    ['#0b1f42', '#1d4ed8', '#fbbf24', 'Aurore Royale'],
-    ['#1e1b4b', '#6d28d9', '#f472b6', 'Louange Céleste'],
-    ['#064e3b', '#059669', '#a7f3d0', 'Paix Émeraude'],
-    ['#451a03', '#b45309', '#fde68a', 'Lumière Dorée'],
-    ['#0f172a', '#334155', '#38bdf8', 'Nuit Étoilée'],
-    ['#7c2d12', '#ea580c', '#fed7aa', 'Feu Sacré'],
-  ];
-  const offset = (page - 1) * 3;
-  return [0, 1, 2].map((i) => {
-    const [c1, c2, accent, label] = palettes[(offset + i) % palettes.length];
-    const title = query ? `${label} · ${query}` : `${label} #${page}`;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
-  <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${c1}"/>
-      <stop offset="100%" stop-color="${c2}"/>
-    </linearGradient>
-    <radialGradient id="r" cx="50%" cy="32%" r="55%">
-      <stop offset="0%" stop-color="${accent}" stop-opacity="0.34"/>
-      <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="1080" height="1080" fill="url(#g)"/>
-  <rect width="1080" height="1080" fill="url(#r)"/>
-  <circle cx="${260 + ((i * 190) % 520)}" cy="${220 + ((page * 90) % 300)}" r="240" fill="${accent}" fill-opacity="0.1"/>
-  <circle cx="${780 - ((i * 130) % 400)}" cy="820" r="320" fill="#ffffff" fill-opacity="0.06"/>
-</svg>`;
-    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    return {
-      id: `bg_svg_${page}_${i}_${Date.now()}`,
-      assetType: 'backgrounds',
-      title,
-      previewUrl: dataUrl,
-      fullUrl: dataUrl,
-      svgMarkup: svg,
-      width: 1080,
-      height: 1080,
-      source: 'gradient-pack',
-    };
-  });
 }
 
 export async function searchOnlineCreativeAssets(params: {
@@ -446,41 +382,32 @@ export async function searchOnlineCreativeAssets(params: {
     params.assetType === 'elements' || params.assetType === 'backgrounds'
       ? params.assetType
       : 'images';
-  const query = (params.query || '').trim() || (assetType === 'elements' ? 'faith' : 'sky light');
+  const query = (params.query || '').trim() || (assetType === 'elements' ? 'dove' : 'sky light');
   const page = Math.max(1, Number(params.page) || 1);
-  const lang: 'fr' | 'en' = params.lang === 'en' ? 'en' : 'fr';
-
-  if (assetType === 'elements') {
-    const [iconify, geminiSvgs] = await Promise.all([
-      fetchIconifyElements(query, page),
-      page <= 4 ? generateGeminiSvgElements(query, page, lang) : Promise.resolve([]),
-    ]);
-    const merged = [...geminiSvgs, ...iconify];
-    return {
-      assets: merged,
-      page,
-      hasMore: iconify.length >= 10 || page < 10,
-    };
-  }
 
   const [wikimedia, openverse] = await Promise.all([
-    fetchWikimediaImages(query, page, assetType),
-    fetchOpenverseImages(query, page, assetType),
+    fetchWikimediaBitmaps(query, page, assetType),
+    fetchOpenverseBitmaps(query, page, assetType),
   ]);
 
   const seenUrls = new Set<string>();
   const combined: OnlineCreativeAsset[] = [];
 
   for (const item of [...openverse, ...wikimedia]) {
+    if (!isStrictBitmapUrlAndMime(item.fullUrl, item.mimeType)) continue;
     if (!seenUrls.has(item.fullUrl)) {
       seenUrls.add(item.fullUrl);
       combined.push(item);
     }
   }
 
-  if (assetType === 'backgrounds') {
-    const bgSvgs = buildProceduralSvgBackgrounds(params.query?.trim() || '', page);
-    combined.push(...bgSvgs);
+  // For Elements search, sort true PNG bitmaps first
+  if (assetType === 'elements') {
+    combined.sort((a, b) => {
+      const aPng = a.mimeType.includes('png') ? 0 : 1;
+      const bPng = b.mimeType.includes('png') ? 0 : 1;
+      return aPng - bPng;
+    });
   }
 
   return {

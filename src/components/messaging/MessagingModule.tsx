@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Send,
@@ -10,20 +10,16 @@ import {
   Search,
   CheckSquare,
   Square,
-  Upload,
   AlertCircle,
   Plus,
   Trash2,
   History,
   Share2,
-  Smartphone,
 } from 'lucide-react';
 import { dbService, STORES } from '../../services/db';
-import { importContactsFromVcfOrCsv } from '../../services/phoneContacts';
 import { useShalomDB } from '../../hooks/useShalomDB';
 import { Contact, MessageTemplate, ShareHistoryItem } from '../../types';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { DeviceContactImportModal } from '../contacts/DeviceContactImportModal';
 import { MediaPickerBox, persistOptionalMedia } from '../common/MediaAttachment';
 import { SocialShareModal } from '../common/SocialShareModal';
 import { SharePayload, tryNativeShare, normalizeMediaToShareFile } from '../../services/socialShare';
@@ -56,7 +52,6 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
   const [quickName, setQuickName] = useState('');
   const [quickPhone, setQuickPhone] = useState('');
   const [isBulkDeleteRecipientsOpen, setIsBulkDeleteRecipientsOpen] = useState(false);
-  const [isDeviceImportOpen, setIsDeviceImportOpen] = useState(false);
 
   // History bulk selection
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
@@ -68,8 +63,6 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
   // Optional media attachment on Nouveau partage
   const [pendingMediaFile, setPendingMediaFile] = useState<File | null>(null);
   const [socialSharePayload, setSocialSharePayload] = useState<SharePayload | null>(null);
-
-  const vcfInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (initialContacts && initialContacts.length > 0) {
@@ -195,26 +188,6 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
     } else {
       setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
     }
-  };
-
-  const handleImportVcf = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const { contacts: imported, addedCount } = await importContactsFromVcfOrCsv(
-      file,
-      allAvailableContacts
-    );
-    if (imported.length > 0) {
-      const importedIds = imported.map((c) => c.id);
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...importedIds])));
-      setInfoBanner(
-        `${imported.length} contact(s) sélectionné(s) (${addedCount} nouveau(x) ajouté(s)).`
-      );
-      reloadData();
-    } else {
-      setInfoBanner('Aucun contact valide trouvé dans ce fichier.');
-    }
-    e.target.value = '';
   };
 
   const handleQuickAddContact = async (e: React.FormEvent) => {
@@ -453,14 +426,6 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
         </div>
       )}
 
-      <input
-        ref={vcfInputRef}
-        type="file"
-        accept=".vcf,.csv,text/vcard"
-        onChange={handleImportVcf}
-        className="hidden"
-      />
-
       {activeSubTab === 'history' && !campaignStarted ? (
         <div className="space-y-4">
           {shareHistory.length > 0 && (
@@ -660,32 +625,12 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
               <div className="space-y-2">
                 <button
                   type="button"
-                  onClick={() => setIsDeviceImportOpen(true)}
-                  className="w-full min-h-[44px] px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
+                  onClick={() => setShowQuickAdd((prev) => !prev)}
+                  className="w-full min-h-[40px] px-3 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center justify-center gap-1.5"
                 >
-                  <Smartphone className="w-4 h-4" />
-                  <span>Ajouter depuis mes contacts</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Saisir un numéro</span>
                 </button>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowQuickAdd((prev) => !prev)}
-                    className="min-h-[40px] px-2.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-bold flex items-center justify-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Saisir un numéro</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => vcfInputRef.current?.click()}
-                    className="min-h-[40px] px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-semibold flex items-center justify-center gap-1.5"
-                  >
-                    <Upload className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Importer .vcf</span>
-                  </button>
-                </div>
 
                 {showQuickAdd && (
                   <form
@@ -1051,18 +996,6 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
         isDestructive
         onConfirm={handleBulkDeleteHistory}
         onCancel={() => setIsBulkDeleteHistoryOpen(false)}
-      />
-
-      <DeviceContactImportModal
-        isOpen={isDeviceImportOpen}
-        onClose={() => setIsDeviceImportOpen(false)}
-        existingContacts={contacts}
-        onImported={async (imported, summary) => {
-          await reloadData();
-          setSelectedIds((prev) => Array.from(new Set([...prev, ...imported.map((c) => c.id)])));
-          setInfoBanner(summary);
-          setIsDeviceImportOpen(false);
-        }}
       />
     </div>
   );

@@ -21,16 +21,13 @@ import {
   Sliders,
   AlignLeft,
   Archive,
-  Undo2,
-  Redo2,
   ZoomIn,
   ZoomOut,
   Lock,
   Unlock,
   Flag,
   Sparkles,
-  Eye,
-  FolderOpen,
+  FolderHeart,
   FileAudio,
   Magnet,
   CheckSquare,
@@ -41,6 +38,15 @@ import {
   Globe,
   AlignCenter,
   AlignRight,
+  ClipboardPaste,
+  Headphones,
+  LayoutTemplate,
+  BookmarkPlus,
+  Bold,
+  Italic,
+  Underline,
+  FolderOpen,
+  Pause,
 } from 'lucide-react';
 import { Mp3Encoder } from '@breezystack/lamejs';
 import { useShalomDB } from '../../hooks/useShalomDB';
@@ -49,13 +55,46 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { CreativeDesignItem, RecordedParole, SavedStudioTemplate, VaultDocument } from '../../types';
 import { SocialShareModal } from '../common/SocialShareModal';
 import { SharePayload, normalizeMediaToShareFile } from '../../services/socialShare';
-import { downloadBlobToDevice, readFileAsVerifiedBlob, sanitizeFileName } from '../../services/fileTransfer';
-import { loadStudioDraft, saveStudioDraft } from '../../services/studioPersistence';
 import {
-  saveOnlineTemplateLocally,
-  deleteSavedOnlineTemplate,
-} from '../../services/studioTemplatesStore';
+  chooseShalomDownloadDirectory,
+  downloadBlobToDevice,
+  readFileAsVerifiedBlob,
+  sanitizeFileName,
+} from '../../services/fileTransfer';
+import { ShalomFolderExplorerModal } from '../vault/ShalomFolderExplorerModal';
+import { loadStudioDraft, saveStudioDraft } from '../../services/studioPersistence';
+import { deleteSavedOnlineTemplate } from '../../services/studioTemplatesStore';
+import {
+  saveAssetResourceToShalom,
+  saveTemplateBundleToShalom,
+  fetchRemoteAssetVerifiedBlob,
+} from '../../services/studios/offlineResources';
+import { createSafeAudioContext } from '../../services/studios/canvasSafety';
+import {
+  searchOnlineTemplatesClient,
+  searchOnlineMediaLibrary,
+  OnlineMediaTrackResult,
+} from '../../services/onlineStudioSearch';
 import { Modal } from '../common/Modal';
+import { StudioWorkspaceShell, StudioToolRailItem } from './shared/StudioWorkspaceShell';
+import { WaveformClipView } from './shared/WaveformClipView';
+import { ShalomResourcesPanel } from './shared/ShalomResourcesPanel';
+import { TemplatePreviewCard } from './shared/TemplatePreviewCard';
+import {
+  TemplatePreviewModal,
+  PreviewModalTemplateData,
+} from './shared/TemplatePreviewModal';
+
+type AudioToolTab =
+  | 'templates'
+  | 'record'
+  | 'import'
+  | 'synth'
+  | 'online'
+  | 'script'
+  | 'fx'
+  | 'shalom'
+  | 'projects';
 
 interface AudioTrack {
   id: string;
@@ -95,7 +134,7 @@ interface AudioMasterFx {
   eqLowDb: number;
   eqMidDb: number;
   eqHighDb: number;
-  reverbMix: number; // 0 to 0.7
+  reverbMix: number;
 }
 
 interface AudioScriptStyle {
@@ -216,8 +255,10 @@ const AUDIO_TEMPLATES: AudioTemplateDef[] = [
       { id: 'mk_2', timeSec: 4, label: 'Verset du jour', color: '#3b82f6' },
       { id: 'mk_3', timeSec: 12, label: 'Prière finale', color: '#10b981' },
     ],
-    scriptFr: 'Shalom bien-aimés ! Aujourd’hui méditons ensemble sur Psaumes 23:1 : « L’Éternel est mon berger : je ne manquerai de rien. »\n\nPrenons un instant pour déposer nos fardeaux et accueillir Sa paix...',
-    scriptEn: 'Shalom beloved! Today let us meditate on Psalm 23:1: "The Lord is my shepherd; I shall not want."\n\nTake a quiet moment to lay down every burden and receive His peace...',
+    scriptFr:
+      'Shalom bien-aimés ! Aujourd’hui méditons ensemble sur Psaumes 23:1 : « L’Éternel est mon berger : je ne manquerai de rien. »\n\nPrenons un instant pour déposer nos fardeaux et accueillir Sa paix...',
+    scriptEn:
+      'Shalom beloved! Today let us meditate on Psalm 23:1: "The Lord is my shepherd; I shall not want."\n\nTake a quiet moment to lay down every burden and receive His peace...',
   },
   {
     id: 'guided_meditation',
@@ -241,8 +282,10 @@ const AUDIO_TEMPLATES: AudioTemplateDef[] = [
       { id: 'mk_m1', timeSec: 0, label: 'Respiration & Silence', color: '#10b981' },
       { id: 'mk_m2', timeSec: 6, label: 'Lecture lente du verset', color: '#fbbf24' },
     ],
-    scriptFr: 'Inspirez profondément… « Je vous laisse la paix, je vous donne ma paix. » (Jean 14:27)\n\nLaissez cette vérité descendre dans votre cœur sans hâte.',
-    scriptEn: 'Breathe slowly… "Peace I leave with you, my peace I give to you." (John 14:27)\n\nLet this truth settle gently into your spirit.',
+    scriptFr:
+      'Inspirez profondément… « Je vous laisse la paix, je vous donne ma paix. » (Jean 14:27)\n\nLaissez cette vérité descendre dans votre cœur sans hâte.',
+    scriptEn:
+      'Breathe slowly… "Peace I leave with you, my peace I give to you." (John 14:27)\n\nLet this truth settle gently into your spirit.',
   },
   {
     id: 'church_announcement',
@@ -266,8 +309,10 @@ const AUDIO_TEMPLATES: AudioTemplateDef[] = [
       { id: 'mk_a1', timeSec: 1.5, label: 'Titre & Date', color: '#f59e0b' },
       { id: 'mk_a2', timeSec: 8, label: 'Lieu & Invitation', color: '#3b82f6' },
     ],
-    scriptFr: 'Rendez-vous spécial ce dimanche pour notre culte de louange et de prière ! Invitez un ami ou un membre de votre famille.',
-    scriptEn: 'Join us this Sunday for a special worship and prayer service! Invite a friend or family member.',
+    scriptFr:
+      'Rendez-vous spécial ce dimanche pour notre culte de louange et de prière ! Invitez un ami ou un membre de votre famille.',
+    scriptEn:
+      'Join us this Sunday for a special worship and prayer service! Invite a friend or family member.',
   },
   {
     id: 'choir_harmony',
@@ -483,7 +528,7 @@ function synthesizePadBuffer(
   const right = buf.getChannelData(1);
 
   if (preset === 'metronome') {
-    const beatInterval = 60 / 80; // 80 BPM
+    const beatInterval = 60 / 80;
     for (let i = 0; i < len; i++) {
       const t = i / sr;
       const inBeat = t % beatInterval;
@@ -578,7 +623,6 @@ function generateAudioCoverThumbnail(title: string, trackCount: number, durSec: 
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 480, 270);
 
-  // Waveform bars visual
   ctx.fillStyle = '#fbbf24';
   for (let i = 0; i < 36; i++) {
     const h = 24 + Math.abs(Math.sin(i * 0.65)) * 88;
@@ -659,10 +703,6 @@ export const AudioStudioModule: React.FC = () => {
     () => creations.filter((c) => c.studioType === 'audio'),
     [creations]
   );
-  const savedAudioTemplates = useMemo(
-    () => customTemplates.filter((t) => t.studioType === 'audio'),
-    [customTemplates]
-  );
 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState(
@@ -684,22 +724,55 @@ export const AudioStudioModule: React.FC = () => {
   const [scriptFontSize, setScriptFontSize] = useState(14);
   const [scriptStyle, setScriptStyle] = useState<AudioScriptStyle>(DEFAULT_SCRIPT_STYLE);
 
-  // Canva-style tool tabs & zoom/snap
-  const [activeToolTab, setActiveToolTab] = useState<
-    'templates' | 'elements' | 'script' | 'fx' | 'projects'
-  >('elements');
+  // StudioWorkspaceShell tabs & inspector
+  const [activeToolTab, setActiveToolTab] = useState<AudioToolTab | null>('templates');
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [showShalomFolderModal, setShowShalomFolderModal] = useState(false);
+
+  // Timeline view controls
   const [zoomPxPerSec, setZoomPxPerSec] = useState(48);
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [copiedClips, setCopiedClips] = useState<AudioClipItem[]>([]);
 
   // Online templates search
   const [templateQuery, setTemplateQuery] = useState('');
   const [templateCategory, setTemplateCategory] = useState('all');
   const [onlineTemplates, setOnlineTemplates] = useState<AudioTemplateDef[]>([]);
-  const [templatePage, setTemplatePage] = useState(1);
+  const [, setTemplatePage] = useState(1);
   const [templateHasMore, setTemplateHasMore] = useState(true);
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
   const [isLoadingMoreTemplates, setIsLoadingMoreTemplates] = useState(false);
   const [onlineStatusMsg, setOnlineStatusMsg] = useState<string | null>(null);
+  const [savingResourceId, setSavingResourceId] = useState<string | null>(null);
+
+  // Online audio library search
+  const [onlineAudioQuery, setOnlineAudioQuery] = useState('');
+  const [onlineAudioItems, setOnlineAudioItems] = useState<OnlineMediaTrackResult[]>([]);
+  const [onlineAudioPage, setOnlineAudioPage] = useState(1);
+  const [onlineAudioHasMore, setOnlineAudioHasMore] = useState(false);
+  const [isSearchingOnlineAudio, setIsSearchingOnlineAudio] = useState(false);
+  const [onlineAudioError, setOnlineAudioError] = useState<string | null>(null);
+  const [loadingOnlineAudioId, setLoadingOnlineAudioId] = useState<string | null>(null);
+  const [previewingTemplate, setPreviewingTemplate] = useState<AudioTemplateDef | null>(null);
+
+  // Managed single online audio preview player (no overlapping tracks)
+  const onlinePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [onlinePlayerState, setOnlinePlayerState] = useState<{
+    itemId: string | null;
+    playing: boolean;
+    loading: boolean;
+    currentTime: number;
+    duration: number;
+    error: string | null;
+  }>({
+    itemId: null,
+    playing: false,
+    loading: false,
+    currentTime: 0,
+    duration: 0,
+    error: null,
+  });
 
   // Undo / Redo stacks
   const [undoStack, setUndoStack] = useState<AudioSnapshot[]>([]);
@@ -724,6 +797,8 @@ export const AudioStudioModule: React.FC = () => {
   const previewTimerRef = useRef<number | null>(null);
   const previewStartWallRef = useRef<number>(0);
   const previewStartOffsetRef = useRef<number>(0);
+  const audioRulerRef = useRef<HTMLDivElement | null>(null);
+  const isScrubbingAudioRef = useRef<boolean>(false);
 
   // Final preview modal + Export
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -735,28 +810,217 @@ export const AudioStudioModule: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
 
-  // Auto-draft recovery prompt state
+  // Auto-draft recovery
   const [recoverableDraft, setRecoverableDraft] = useState<boolean>(false);
   const draftLoadedRef = useRef(false);
-
-  // Timeline drag ref
-  const dragClipRef = useRef<{
-    clipId: string;
-    startClientX: number;
-    origStartSec: number;
-  } | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const getAudioCtx = useCallback(() => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioCtxRef.current = new Ctx();
+      const created = createSafeAudioContext();
+      if (!created) {
+        throw new Error(
+          isEn
+            ? 'Web Audio engine is unavailable on this WebView.'
+            : 'Le moteur audio WebAudio est indisponible sur ce WebView.'
+        );
+      }
+      audioCtxRef.current = created;
     }
     return audioCtxRef.current;
+  }, [isEn]);
+
+  const stopOnlinePreviewAudio = useCallback(() => {
+    const audioEl = onlinePreviewAudioRef.current;
+    if (audioEl) {
+      try {
+        audioEl.pause();
+      } catch {
+        // noop
+      }
+    }
+    setOnlinePlayerState((prev) => ({
+      ...prev,
+      playing: false,
+      loading: false,
+    }));
   }, []);
+
+  const toggleOnlineAudioPreview = useCallback(
+    (item: OnlineMediaTrackResult) => {
+      // Stop timeline playback so two players never overlap
+      if (previewTimerRef.current) {
+        clearInterval(previewTimerRef.current);
+        previewTimerRef.current = null;
+      }
+      previewSourcesRef.current.forEach((s) => {
+        try {
+          s.stop();
+        } catch {
+          // noop
+        }
+      });
+      previewSourcesRef.current = [];
+      setIsPlayingPreview(false);
+
+      let audioEl = onlinePreviewAudioRef.current;
+      if (!audioEl) {
+        audioEl = new Audio();
+        audioEl.preload = 'metadata';
+        onlinePreviewAudioRef.current = audioEl;
+      }
+
+      if (onlinePlayerState.itemId === item.id && audioEl.src) {
+        if (onlinePlayerState.playing) {
+          audioEl.pause();
+          setOnlinePlayerState((p) => ({ ...p, playing: false, loading: false }));
+        } else {
+          setOnlinePlayerState((p) => ({ ...p, loading: true, error: null }));
+          audioEl.play().catch(() => {
+            setOnlinePlayerState((p) => ({
+              ...p,
+              playing: false,
+              loading: false,
+              error: isEn
+                ? 'Online playback blocked or unsupported codec in this WebView.'
+                : 'Lecture en ligne bloquée ou codec non supporté par ce lecteur.',
+            }));
+          });
+        }
+        return;
+      }
+
+      try {
+        audioEl.pause();
+      } catch {
+        // noop
+      }
+
+      audioEl.onloadedmetadata = () => {
+        const dur = Number.isFinite(audioEl!.duration) && audioEl!.duration > 0
+          ? audioEl!.duration
+          : item.durationSec || 0;
+        setOnlinePlayerState((p) => (p.itemId === item.id ? { ...p, duration: dur } : p));
+      };
+      audioEl.ontimeupdate = () => {
+        setOnlinePlayerState((p) =>
+          p.itemId === item.id
+            ? {
+                ...p,
+                currentTime: audioEl!.currentTime || 0,
+                duration:
+                  Number.isFinite(audioEl!.duration) && audioEl!.duration > 0
+                    ? audioEl!.duration
+                    : p.duration,
+              }
+            : p
+        );
+      };
+      audioEl.onplaying = () => {
+        setOnlinePlayerState((p) =>
+          p.itemId === item.id ? { ...p, playing: true, loading: false, error: null } : p
+        );
+      };
+      audioEl.onpause = () => {
+        setOnlinePlayerState((p) =>
+          p.itemId === item.id ? { ...p, playing: false, loading: false } : p
+        );
+      };
+      audioEl.onended = () => {
+        setOnlinePlayerState((p) =>
+          p.itemId === item.id ? { ...p, playing: false, loading: false, currentTime: 0 } : p
+        );
+      };
+      audioEl.onerror = () => {
+        setOnlinePlayerState((p) =>
+          p.itemId === item.id
+            ? {
+                ...p,
+                playing: false,
+                loading: false,
+                error: isEn
+                  ? 'Playback unavailable (network or WebView codec limitation).'
+                  : 'Lecture directe impossible (réseau ou format non supporté par le lecteur).',
+              }
+            : p
+        );
+      };
+
+      setOnlinePlayerState({
+        itemId: item.id,
+        playing: false,
+        loading: true,
+        currentTime: 0,
+        duration: item.durationSec || 0,
+        error: null,
+      });
+
+      audioEl.src = item.streamUrl;
+      audioEl.load();
+      audioEl.play().catch(() => {
+        setOnlinePlayerState((p) =>
+          p.itemId === item.id
+            ? {
+                ...p,
+                playing: false,
+                loading: false,
+                error: isEn
+                  ? 'Playback blocked by remote host or unsupported codec.'
+                  : 'Lecture refusée par la source distante ou codec non pris en charge.',
+              }
+            : p
+        );
+      });
+    },
+    [onlinePlayerState.itemId, onlinePlayerState.playing, isEn]
+  );
+
+  const seekOnlineAudioPreview = useCallback((sec: number) => {
+    const audioEl = onlinePreviewAudioRef.current;
+    if (!audioEl) return;
+    try {
+      audioEl.currentTime = sec;
+      setOnlinePlayerState((p) => ({ ...p, currentTime: sec }));
+    } catch {
+      // noop
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeToolTab !== 'online') {
+      stopOnlinePreviewAudio();
+    }
+  }, [activeToolTab, stopOnlinePreviewAudio]);
+
+  const scrubAudioFromClientX = useCallback(
+    (clientX: number) => {
+      const el = audioRulerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = Math.max(0, clientX - rect.left);
+      setPlayheadSec(Number((x / zoomPxPerSec).toFixed(2)));
+    },
+    [zoomPxPerSec]
+  );
+
+  useEffect(() => {
+    const onMove = (ev: PointerEvent) => {
+      if (!isScrubbingAudioRef.current) return;
+      scrubAudioFromClientX(ev.clientX);
+    };
+    const onUp = () => {
+      isScrubbingAudioRef.current = false;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [scrubAudioFromClientX]);
 
   const pushHistory = useCallback(() => {
     const snap: AudioSnapshot = {
@@ -818,7 +1082,39 @@ export const AudioStudioModule: React.FC = () => {
     setScriptStyle(nextSnap.scriptStyle || DEFAULT_SCRIPT_STYLE);
   }, [redoStack, tracks, clips, markers, masterGain, masterFx, scriptText, scriptStyle]);
 
-  // Keyboard shortcuts Undo/Redo/Delete
+  const handleCopySelectedClips = useCallback(() => {
+    if (selectedClipIds.length === 0) return;
+    const picked = clips.filter((c) => selectedClipIds.includes(c.id));
+    if (picked.length === 0) return;
+    setCopiedClips(picked.map((c) => ({ ...c })));
+    setNotice(isEn ? `${picked.length} clip(s) copied.` : `${picked.length} extrait(s) copié(s).`);
+  }, [selectedClipIds, clips, isEn]);
+
+  const handlePasteCopiedClips = useCallback(() => {
+    if (copiedClips.length === 0) return;
+    pushHistory();
+    const minOrigStart = Math.min(...copiedClips.map((c) => c.startTimeSec));
+    const pasteOrigin = Number(playheadSec.toFixed(2));
+    const newIds: string[] = [];
+    const additions: AudioClipItem[] = copiedClips.map((c, idx) => {
+      const nid = `clip_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 5)}`;
+      newIds.push(nid);
+      return {
+        ...c,
+        id: nid,
+        name: c.name.endsWith('(copie)') ? c.name : `${c.name} (copie)`,
+        startTimeSec: Number((pasteOrigin + Math.max(0, c.startTimeSec - minOrigStart)).toFixed(2)),
+      };
+    });
+    setClips((prev) => [...prev, ...additions]);
+    setSelectedClipIds(newIds);
+    setNotice(
+      isEn
+        ? `${additions.length} clip(s) pasted at ${pasteOrigin}s.`
+        : `${additions.length} extrait(s) collé(s) à ${pasteOrigin}s.`
+    );
+  }, [copiedClips, pushHistory, playheadSec, isEn]);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -830,6 +1126,16 @@ export const AudioStudioModule: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         handleRedo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (selectedClipIds.length > 0) {
+          e.preventDefault();
+          handleCopySelectedClips();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (copiedClips.length > 0) {
+          e.preventDefault();
+          handlePasteCopiedClips();
+        }
       } else if (e.key === 'Delete' && selectedClipIds.length > 0) {
         e.preventDefault();
         pushHistory();
@@ -839,9 +1145,16 @@ export const AudioStudioModule: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleUndo, handleRedo, selectedClipIds, pushHistory]);
+  }, [
+    handleUndo,
+    handleRedo,
+    selectedClipIds,
+    pushHistory,
+    handleCopySelectedClips,
+    handlePasteCopiedClips,
+    copiedClips.length,
+  ]);
 
-  // Check if auto-draft exists on initial mount
   useEffect(() => {
     if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
@@ -863,12 +1176,19 @@ export const AudioStudioModule: React.FC = () => {
           // noop
         }
       });
+      if (onlinePreviewAudioRef.current) {
+        try {
+          onlinePreviewAudioRef.current.pause();
+          onlinePreviewAudioRef.current.src = '';
+        } catch {
+          // noop
+        }
+      }
       micStreamRef.current?.getTracks().forEach((t) => t.stop());
       if (exportedUrl) URL.revokeObjectURL(exportedUrl);
     };
   }, [exportedUrl]);
 
-  // Ensure every clip's AudioBuffer is persisted into MEDIA_BLOBS once for fast save/draft
   const ensureClipAssetKey = async (clip: AudioClipItem): Promise<string> => {
     if (clip.assetKey) {
       const exists = await dbService.verifyMediaBlob(clip.assetKey);
@@ -921,12 +1241,20 @@ export const AudioStudioModule: React.FC = () => {
     return { json: JSON.stringify(payload), mediaAssetKeys: assetKeys };
   };
 
-  const deserializeAndLoadProject = async (title: string, projectJson: string, projectId: string | null) => {
+  const deserializeAndLoadProject = async (
+    title: string,
+    projectJson: string,
+    projectId: string | null
+  ) => {
     const parsed = JSON.parse(projectJson) as SerializedAudioProject;
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error(isEn ? 'Invalid audio project format.' : 'Format de projet audio invalide.');
+    }
     const ctx = getAudioCtx();
     const restoredClips: AudioClipItem[] = [];
 
-    for (const sc of parsed.clips || []) {
+    for (const sc of Array.isArray(parsed.clips) ? parsed.clips : []) {
+      if (!sc?.assetKey) continue;
       const blob = await dbService.getMediaBlob(sc.assetKey);
       if (!blob) continue;
       try {
@@ -967,7 +1295,6 @@ export const AudioStudioModule: React.FC = () => {
     setRedoStack([]);
   };
 
-  // Debounced auto-draft saving when content changes
   useEffect(() => {
     if (clips.length === 0 && !scriptText.trim() && markers.length === 0) return;
     const timer = window.setTimeout(async () => {
@@ -991,7 +1318,9 @@ export const AudioStudioModule: React.FC = () => {
     try {
       await deserializeAndLoadProject(draft.title || 'Brouillon Audio', draft.projectJson, null);
       setRecoverableDraft(false);
-      setNotice(isEn ? 'Previous audio session restored.' : 'Brouillon audio restauré automatiquement !');
+      setNotice(
+        isEn ? 'Previous audio session restored.' : 'Brouillon audio restauré automatiquement !'
+      );
     } catch {
       setRecoverableDraft(false);
     }
@@ -1023,7 +1352,8 @@ export const AudioStudioModule: React.FC = () => {
     name: string,
     targetTrackId?: string,
     explicitStartSec?: number,
-    explicitGain = 1.0
+    explicitGain = 1.0,
+    assetKey?: string
   ) => {
     const tId = targetTrackId || selectedTrackId;
     const startAt = explicitStartSec !== undefined ? explicitStartSec : getNextStartForTrack(tId);
@@ -1033,6 +1363,7 @@ export const AudioStudioModule: React.FC = () => {
       trackId: tId,
       name,
       buffer,
+      assetKey,
       startTimeSec: startAt,
       trimStart: 0,
       trimEnd: Number(buffer.duration.toFixed(2)),
@@ -1047,87 +1378,172 @@ export const AudioStudioModule: React.FC = () => {
     setSelectedClipIds([id]);
   };
 
-  const decodeBlobToClip = async (blob: Blob, name: string, targetTrackId?: string) => {
+  const decodeBlobToClip = async (
+    blob: Blob,
+    name: string,
+    targetTrackId?: string,
+    assetKey?: string
+  ) => {
     const ctx = getAudioCtx();
     const arr = await blob.arrayBuffer();
     const buffer = await ctx.decodeAudioData(arr.slice(0));
     pushHistory();
-    addBufferAsClip(buffer, name, targetTrackId);
+    addBufferAsClip(buffer, name, targetTrackId, undefined, 1.0, assetKey);
   };
 
-  const handleApplyTemplate = async (
-    tpl: AudioTemplateDef,
-    options?: { skipPersist?: boolean }
-  ) => {
-    pushHistory();
-    const ctx = getAudioCtx();
-    const nextTracks = tpl.tracks.map((t) => ({ ...t }));
-    const nextClips: AudioClipItem[] = tpl.synthAdditions.map((sa, idx) => {
-      const buf = synthesizePadBuffer(ctx, sa.preset, sa.duration);
-      return {
-        id: `clip_${Date.now()}_${idx}`,
-        trackId: sa.trackId,
-        name: sa.name,
-        buffer: buf,
-        startTimeSec: sa.startTimeSec,
-        trimStart: 0,
-        trimEnd: Number(buf.duration.toFixed(2)),
-        gain: sa.gain,
-        pan: 0,
-        fadeInSec: 0.15,
-        fadeOutSec: 0.4,
-        playbackRate: 1.0,
-        removeSilence: false,
-      };
-    });
-    setTracks(nextTracks);
-    setSelectedTrackId(nextTracks[0].id);
-    setClips(nextClips);
-    setMarkers(tpl.markers.map((m) => ({ ...m })));
-    setScriptText(isEn ? tpl.scriptEn : tpl.scriptFr);
-    setProjectTitle(isEn ? tpl.titleEn : tpl.titleFr);
-    setSelectedClipIds(nextClips[0] ? [nextClips[0].id] : []);
-
-    const isOnlineTpl =
-      Boolean(tpl.source && tpl.source !== 'local') ||
-      tpl.id.startsWith('live_') ||
-      tpl.id.startsWith('proc_') ||
-      tpl.id.startsWith('online_');
-    if (isOnlineTpl && !options?.skipPersist) {
-      try {
-        await saveOnlineTemplateLocally({
-          id: tpl.id,
-          studioType: 'audio',
-          title: isEn ? tpl.titleEn : tpl.titleFr,
-          category: tpl.category || 'En ligne',
-          templateObj: tpl,
-          previewColor: tpl.badgeColor,
-          source: tpl.source,
-        });
-        reloadData();
-      } catch {
-        // non-fatal
-      }
-    }
-
-    setNotice(
-      isEn
-        ? `Template "${tpl.titleEn}" loaded${isOnlineTpl && !options?.skipPersist ? ' and kept in My Templates' : ''}!`
-        : `Modèle « ${tpl.titleFr} » chargé${isOnlineTpl && !options?.skipPersist ? ' et conservé dans Vos modèles' : ''} !`
-    );
-  };
-
-  const handleApplySavedOnlineTemplate = async (savedItem: SavedStudioTemplate) => {
+  const handleApplyTemplate = async (tpl: AudioTemplateDef) => {
     try {
-      const parsed = JSON.parse(savedItem.templateJson) as AudioTemplateDef;
-      await handleApplyTemplate(parsed, { skipPersist: true });
-    } catch {
-      setNotice(isEn ? 'Could not load saved template.' : 'Impossible d’ouvrir ce modèle enregistré.');
+      pushHistory();
+      const ctx = getAudioCtx();
+      const nextTracks = tpl.tracks.map((t) => ({ ...t }));
+      const nextClips: AudioClipItem[] = tpl.synthAdditions.map((sa, idx) => {
+        const buf = synthesizePadBuffer(ctx, sa.preset, sa.duration);
+        return {
+          id: `clip_${Date.now()}_${idx}`,
+          trackId: sa.trackId,
+          name: sa.name,
+          buffer: buf,
+          startTimeSec: sa.startTimeSec,
+          trimStart: 0,
+          trimEnd: Number(buf.duration.toFixed(2)),
+          gain: sa.gain,
+          pan: 0,
+          fadeInSec: 0.15,
+          fadeOutSec: 0.4,
+          playbackRate: 1.0,
+          removeSilence: false,
+        };
+      });
+      setTracks(nextTracks);
+      if (nextTracks[0]) setSelectedTrackId(nextTracks[0].id);
+      setClips(nextClips);
+      setMarkers(tpl.markers.map((m) => ({ ...m })));
+      setScriptText(isEn ? tpl.scriptEn : tpl.scriptFr);
+      setProjectTitle(isEn ? tpl.titleEn : tpl.titleFr);
+      setSelectedClipIds(nextClips[0] ? [nextClips[0].id] : []);
+      setNotice(
+        isEn
+          ? `Template "${tpl.titleEn}" loaded onto timeline!`
+          : `Modèle « ${tpl.titleFr} » chargé sur la timeline !`
+      );
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : isEn
+            ? 'Could not initialize template audio tracks.'
+            : 'Impossible d’initialiser ce modèle audio.'
+      );
     }
   };
 
-  const handleDeleteSavedOnlineTemplate = async (id: string) => {
-    await deleteSavedOnlineTemplate(id);
+  const handleSaveTemplateToShalom = async (tpl: AudioTemplateDef) => {
+    setSavingResourceId(tpl.id);
+    try {
+      const title = isEn ? tpl.titleEn : tpl.titleFr;
+      await saveTemplateBundleToShalom({
+        id: tpl.id,
+        studioType: 'audio',
+        title,
+        category: tpl.category || 'Audio',
+        templateObj: tpl as unknown as Record<string, unknown>,
+        previewColor: tpl.badgeColor,
+        previewDataUrl: generateAudioCoverThumbnail(
+          title,
+          tpl.tracks.length,
+          tpl.synthAdditions.reduce((m, s) => Math.max(m, s.startTimeSec + s.duration), 8)
+        ),
+        source: tpl.source || 'online-catalog',
+      });
+      reloadData();
+      setNotice(
+        isEn
+          ? `"${title}" saved into My SHALOM Resources (verified offline)!`
+          : `« ${title} » enregistré dans « Mes ressources SHALOM » (vérifié hors-ligne) !`
+      );
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : isEn
+            ? 'Could not save template offline.'
+            : 'Impossible d’enregistrer ce modèle hors-ligne.'
+      );
+    } finally {
+      setSavingResourceId(null);
+    }
+  };
+
+  const handleSaveOnlineAudioToShalom = async (item: OnlineMediaTrackResult) => {
+    setSavingResourceId(item.id);
+    try {
+      await saveAssetResourceToShalom({
+        id: item.id,
+        studioType: 'audio',
+        resourceType: 'audio',
+        title: item.title,
+        category: 'Audio en ligne',
+        remoteUrl: item.streamUrl,
+        attribution: item.author,
+        license: item.license || 'Wikimedia Commons',
+        source: 'online-live',
+      });
+      reloadData();
+      setNotice(
+        isEn
+          ? `"${item.title}" saved in My SHALOM Resources (verified offline)!`
+          : `« ${item.title} » enregistré dans « Mes ressources SHALOM » (vérifié hors-ligne) !`
+      );
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : isEn
+            ? 'Could not save remote audio offline.'
+            : 'Impossible de télécharger ce son pour le mode hors-ligne.'
+      );
+    } finally {
+      setSavingResourceId(null);
+    }
+  };
+
+  const handleApplyShalomResource = async (savedItem: SavedStudioTemplate) => {
+    try {
+      if (savedItem.resourceType && savedItem.resourceType !== 'template') {
+        const meta = JSON.parse(savedItem.templateJson) as {
+          assetKey?: string;
+          mimeType?: string;
+        };
+        if (!meta.assetKey) {
+          throw new Error(isEn ? 'Missing asset key.' : 'Identifiant média manquant.');
+        }
+        const blob = await dbService.getMediaBlob(meta.assetKey);
+        if (!blob) {
+          throw new Error(isEn ? 'Offline audio blob missing.' : 'Fichier audio local introuvable.');
+        }
+        await decodeBlobToClip(blob, savedItem.title, undefined, meta.assetKey);
+        setNotice(
+          isEn
+            ? `Inserted offline resource "${savedItem.title}".`
+            : `Ressource hors-ligne « ${savedItem.title} » ajoutée à la piste !`
+        );
+      } else {
+        const parsed = JSON.parse(savedItem.templateJson) as AudioTemplateDef;
+        await handleApplyTemplate(parsed);
+      }
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : isEn
+            ? 'Could not open saved resource.'
+            : 'Impossible d’ouvrir cette ressource enregistrée.'
+      );
+    }
+  };
+
+  const handleDeleteShalomResource = async (savedItem: SavedStudioTemplate) => {
+    await deleteSavedOnlineTemplate(savedItem.id);
     reloadData();
   };
 
@@ -1162,7 +1578,7 @@ export const AudioStudioModule: React.FC = () => {
     const blob = await dbService.getMediaBlob(rec.blobKey);
     if (!blob) return;
     try {
-      await decodeBlobToClip(blob, rec.title);
+      await decodeBlobToClip(blob, rec.title, undefined, rec.blobKey);
       setNotice(isEn ? `Added "${rec.title}" to track.` : `« ${rec.title} » ajouté à la piste.`);
     } catch {
       setNotice(
@@ -1174,22 +1590,32 @@ export const AudioStudioModule: React.FC = () => {
   };
 
   const handleGenerateSynthClip = (overridePreset?: SynthPresetId) => {
-    const presetToUse = overridePreset || synthPreset;
-    const ctx = getAudioCtx();
-    const dur = Math.max(1, Math.min(30, synthDuration));
-    const buf = synthesizePadBuffer(ctx, presetToUse, dur);
-    const labelMap: Record<SynthPresetId, string> = {
-      silence: `Silence (${dur}s)`,
-      c_major: `Accord Do majeur (${dur}s)`,
-      g_warm: `Accord Sol chaleureux (${dur}s)`,
-      a_minor: `Accord La mineur (${dur}s)`,
-      soft_bell: `Cloche méditation (${dur}s)`,
-      chime: `Carillon transition (${dur}s)`,
-      swell: `Montée lumineuse (${dur}s)`,
-      metronome: `Métronome 80 BPM (${dur}s)`,
-    };
-    pushHistory();
-    addBufferAsClip(buf, labelMap[presetToUse]);
+    try {
+      const presetToUse = overridePreset || synthPreset;
+      const ctx = getAudioCtx();
+      const dur = Math.max(1, Math.min(30, synthDuration));
+      const buf = synthesizePadBuffer(ctx, presetToUse, dur);
+      const labelMap: Record<SynthPresetId, string> = {
+        silence: `Silence (${dur}s)`,
+        c_major: `Accord Do majeur (${dur}s)`,
+        g_warm: `Accord Sol chaleureux (${dur}s)`,
+        a_minor: `Accord La mineur (${dur}s)`,
+        soft_bell: `Cloche méditation (${dur}s)`,
+        chime: `Carillon transition (${dur}s)`,
+        swell: `Montée lumineuse (${dur}s)`,
+        metronome: `Métronome 80 BPM (${dur}s)`,
+      };
+      pushHistory();
+      addBufferAsClip(buf, labelMap[presetToUse]);
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : isEn
+            ? 'Could not synthesize audio clip.'
+            : 'Impossible de générer la piste synthé.'
+      );
+    }
   };
 
   const handleToggleMicRecord = async () => {
@@ -1293,47 +1719,38 @@ export const AudioStudioModule: React.FC = () => {
         const excludeTitles = isAppend
           ? onlineTemplates.map((t) => (isEn ? t.titleEn : t.titleFr))
           : [];
-        const res = await fetch('/api/studios/templates/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studioType: 'audio',
-            query: q,
-            category: cat,
-            lang: isEn ? 'en' : 'fr',
-            page: targetPage,
-            excludeTitles,
-          }),
+        const result = await searchOnlineTemplatesClient<AudioTemplateDef>({
+          studioType: 'audio',
+          query: q,
+          category: cat,
+          lang: isEn ? 'en' : 'fr',
+          page: targetPage,
+          excludeTitles,
         });
-        const data = await res.json();
-        if (res.ok && data?.ok && Array.isArray(data.templates)) {
-          const incoming = (data.templates as AudioTemplateDef[]).map((tpl) => ({
-            ...tpl,
-            source: tpl.source || ('online-catalog' as const),
-          }));
-          setTemplatePage(targetPage);
-          setTemplateHasMore(data.hasMore !== false);
-          let nextTotal = incoming.length;
-          setOnlineTemplates((prev) => {
-            if (!isAppend) return incoming;
-            const seen = new Set(prev.map((t) => t.id));
-            const merged = [...prev, ...incoming.filter((t) => !seen.has(t.id))];
-            nextTotal = merged.length;
-            return merged;
-          });
-          setOnlineStatusMsg(
-            isEn
-              ? `${nextTotal} online audio template(s) loaded.`
-              : `${nextTotal} modèle(s) audio chargé(s) en ligne.`
-          );
-        } else {
-          setOnlineStatusMsg(
-            isEn ? 'Online search unavailable right now.' : 'Catalogue en ligne temporairement indisponible.'
-          );
-        }
+        const incoming = result.templates.map((tpl) => ({
+          ...tpl,
+          source: tpl.source || ('online-catalog' as const),
+        }));
+        setTemplatePage(targetPage);
+        setTemplateHasMore(result.hasMore);
+        let nextTotal = incoming.length;
+        setOnlineTemplates((prev) => {
+          if (!isAppend) return incoming;
+          const seen = new Set(prev.map((t) => t.id));
+          const merged = [...prev, ...incoming.filter((t) => !seen.has(t.id))];
+          nextTotal = merged.length;
+          return merged;
+        });
+        setOnlineStatusMsg(
+          isEn
+            ? `${nextTotal} online audio template(s) loaded.`
+            : `${nextTotal} modèle(s) audio chargé(s) en ligne.`
+        );
       } catch {
         setOnlineStatusMsg(
-          isEn ? 'Offline mode: showing local & saved templates.' : 'Mode hors-ligne : modèles locaux et conservés affichés.'
+          isEn
+            ? 'Offline mode: showing local & saved templates.'
+            : 'Mode hors-ligne : modèles locaux et conservés affichés.'
         );
       } finally {
         setIsSearchingOnline(false);
@@ -1342,6 +1759,129 @@ export const AudioStudioModule: React.FC = () => {
     },
     [templateQuery, templateCategory, isEn, onlineTemplates]
   );
+
+  const handleSearchOnlineAudio = useCallback(
+    async (overrideQuery?: string, appendPage?: number) => {
+      const q =
+        (overrideQuery !== undefined ? overrideQuery : onlineAudioQuery).trim() || 'worship gospel';
+      const targetPage = appendPage && appendPage > 1 ? appendPage : 1;
+      setIsSearchingOnlineAudio(true);
+      setOnlineAudioError(null);
+      try {
+        const res = await searchOnlineMediaLibrary({
+          mediaKind: 'audio',
+          query: q,
+          page: targetPage,
+          lang: isEn ? 'en' : 'fr',
+        });
+        setOnlineAudioPage(targetPage);
+        setOnlineAudioHasMore(res.hasMore);
+        setOnlineAudioItems((prev) => {
+          if (targetPage === 1) return res.items;
+          const seen = new Set(prev.map((i) => i.id));
+          return [...prev, ...res.items.filter((i) => !seen.has(i.id))];
+        });
+        if (res.items.length === 0) {
+          setOnlineAudioError(
+            isEn
+              ? 'No audio files found for this search.'
+              : 'Aucun fichier audio trouvé pour cette recherche.'
+          );
+        }
+      } catch (err) {
+        setOnlineAudioError(
+          err instanceof Error
+            ? err.message
+            : isEn
+              ? 'Online audio search failed.'
+              : 'Impossible de contacter la bibliothèque audio en ligne.'
+        );
+      } finally {
+        setIsSearchingOnlineAudio(false);
+      }
+    },
+    [onlineAudioQuery, isEn]
+  );
+
+  const handleInsertOnlineAudio = async (item: OnlineMediaTrackResult) => {
+    setLoadingOnlineAudioId(item.id);
+    setOnlineAudioError(null);
+    try {
+      const blob = await fetchRemoteAssetVerifiedBlob(item.streamUrl, 'audio');
+      await decodeBlobToClip(blob, item.title);
+      setNotice(
+        isEn ? `Added "${item.title}" to track.` : `« ${item.title} » ajouté à la piste audio.`
+      );
+    } catch {
+      setOnlineAudioError(
+        isEn
+          ? 'This remote audio file could not be decoded.'
+          : 'Ce fichier audio distant n’a pas pu être décodé.'
+      );
+    } finally {
+      setLoadingOnlineAudioId(null);
+    }
+  };
+
+  const handleDownloadOnlineAudio = async (item: OnlineMediaTrackResult) => {
+    setLoadingOnlineAudioId(item.id);
+    try {
+      const blob = await fetchRemoteAssetVerifiedBlob(item.streamUrl, 'audio');
+      const ext = item.mimeType.includes('ogg')
+        ? 'ogg'
+        : item.mimeType.includes('wav')
+          ? 'wav'
+          : 'mp3';
+      const fileName = sanitizeFileName(item.title, 'shalom_audio', ext);
+      const res = await downloadBlobToDevice(blob, fileName, blob.type || item.mimeType);
+      if (res.ok) {
+        setNotice(
+          isEn
+            ? `Downloaded "${res.fileName}" to ${res.locationLabel}.`
+            : `Audio « ${res.fileName} » enregistré dans ${res.locationLabel} !`
+        );
+      }
+    } catch {
+      setOnlineAudioError(
+        isEn
+          ? 'Could not download this remote file.'
+          : 'Téléchargement direct impossible pour cette source.'
+      );
+    } finally {
+      setLoadingOnlineAudioId(null);
+    }
+  };
+
+  const handleShareOnlineAudioDirect = async (item: OnlineMediaTrackResult) => {
+    setLoadingOnlineAudioId(item.id);
+    try {
+      const blob = await fetchRemoteAssetVerifiedBlob(item.streamUrl, 'audio');
+      const ext = item.mimeType.includes('ogg')
+        ? 'ogg'
+        : item.mimeType.includes('wav')
+          ? 'wav'
+          : 'mp3';
+      const fileName = sanitizeFileName(item.title, 'shalom_audio', ext);
+      const file = await normalizeMediaToShareFile(
+        blob,
+        fileName,
+        'audio',
+        blob.type || item.mimeType
+      );
+      setSharePayload({
+        title: item.title,
+        text: `🎵 ${item.title}\n\nPartagé sans enregistrement depuis SHALOM Studio Audio`,
+        file,
+      });
+    } catch {
+      setSharePayload({
+        title: item.title,
+        text: `🎵 ${item.title}\n${item.streamUrl}`,
+      });
+    } finally {
+      setLoadingOnlineAudioId(null);
+    }
+  };
 
   useEffect(() => {
     if (activeToolTab === 'templates' && onlineTemplates.length === 0 && !isSearchingOnline) {
@@ -1358,7 +1898,8 @@ export const AudioStudioModule: React.FC = () => {
         cat === 'all' || (tpl.category || '').toLowerCase() === cat.toLowerCase();
       if (!catMatch) return false;
       if (!q) return true;
-      const hay = `${tpl.titleFr} ${tpl.titleEn} ${tpl.descFr} ${tpl.category || ''} ${(tpl.tags || []).join(' ')}`.toLowerCase();
+      const hay =
+        `${tpl.titleFr} ${tpl.titleEn} ${tpl.descFr} ${tpl.category || ''} ${(tpl.tags || []).join(' ')}`.toLowerCase();
       return hay.includes(q);
     };
     const seen = new Set<string>();
@@ -1518,7 +2059,6 @@ export const AudioStudioModule: React.FC = () => {
     return true;
   };
 
-  // Builds shared Master EQ + Reverb bus
   const createMasterBus = (ctx: BaseAudioContext) => {
     const busInput = ctx.createGain();
     busInput.gain.value = masterGain;
@@ -1584,10 +2124,18 @@ export const AudioStudioModule: React.FC = () => {
     }
     if (clips.length === 0) return;
 
-    const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') await ctx.resume();
+    stopOnlinePreviewAudio();
+    let ctx: AudioContext;
+    try {
+      ctx = getAudioCtx();
+      if (ctx.state === 'suspended') await ctx.resume();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Erreur lecture audio');
+      return;
+    }
 
-    const startOffset = playheadSec >= Math.max(0.2, totalProjectDuration - 0.1) ? 0 : playheadSec;
+    const startOffset =
+      playheadSec >= Math.max(0.2, totalProjectDuration - 0.1) ? 0 : playheadSec;
     if (startOffset === 0) setPlayheadSec(0);
 
     const now = ctx.currentTime + 0.05;
@@ -1652,7 +2200,8 @@ export const AudioStudioModule: React.FC = () => {
     setIsPlayingPreview(true);
 
     previewTimerRef.current = window.setInterval(() => {
-      const elapsed = previewStartOffsetRef.current + (performance.now() - previewStartWallRef.current) / 1000;
+      const elapsed =
+        previewStartOffsetRef.current + (performance.now() - previewStartWallRef.current) / 1000;
       if (elapsed >= totalProjectDuration + 0.1) {
         stopPreview();
         setPlayheadSec(0);
@@ -1697,7 +2246,18 @@ export const AudioStudioModule: React.FC = () => {
       }, 0.5);
 
       const totalFrames = Math.ceil((maxDur + 0.3) * sampleRate);
-      const offline = new OfflineAudioContext(2, totalFrames, sampleRate);
+      const OfflineCtx =
+        window.OfflineAudioContext ||
+        (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext })
+          .webkitOfflineAudioContext;
+      if (!OfflineCtx) {
+        throw new Error(
+          isEn
+            ? 'Offline audio rendering is not supported on this WebView.'
+            : 'Le rendu audio hors-ligne n’est pas supporté sur ce WebView.'
+        );
+      }
+      const offline = new OfflineCtx(2, totalFrames, sampleRate);
       const masterBus = createMasterBus(offline);
 
       for (const { clip, track, prepared } of preparedClips) {
@@ -1725,11 +2285,16 @@ export const AudioStudioModule: React.FC = () => {
           gainNode.gain.linearRampToValueAtTime(0.001, startAt + realDur);
         }
 
-        const panner = offline.createStereoPanner();
-        panner.pan.value = clip.pan;
-        src.connect(gainNode);
-        gainNode.connect(panner);
-        panner.connect(masterBus);
+        if (typeof offline.createStereoPanner === 'function') {
+          const panner = offline.createStereoPanner();
+          panner.pan.value = clip.pan;
+          src.connect(gainNode);
+          gainNode.connect(panner);
+          panner.connect(masterBus);
+        } else {
+          src.connect(gainNode);
+          gainNode.connect(masterBus);
+        }
         src.start(startAt);
       }
 
@@ -1753,6 +2318,7 @@ export const AudioStudioModule: React.FC = () => {
     setExportedUrl(url);
     setExportedBlob(res.blob);
     setExportedFormat(res.format);
+    setShowPreviewModal(true);
     setNotice(
       isEn
         ? `Audio mixed & exported (${res.format.toUpperCase()})!`
@@ -1772,7 +2338,11 @@ export const AudioStudioModule: React.FC = () => {
         templateType: 'encouragement',
         format: 'audio_multitrack',
         studioType: 'audio',
-        thumbnailDataUrl: generateAudioCoverThumbnail(projectTitle, tracks.length, totalProjectDuration),
+        thumbnailDataUrl: generateAudioCoverThumbnail(
+          projectTitle,
+          tracks.length,
+          totalProjectDuration
+        ),
         mediaBlobKey: mediaAssetKeys[0] || '',
         mimeType: 'application/json',
         projectJson: json,
@@ -1786,7 +2356,7 @@ export const AudioStudioModule: React.FC = () => {
       setNotice(
         isEn
           ? 'Audio project saved! Reopen it anytime from Saved Projects.'
-          : 'Projet audio sauvegardé ! Retrouvez-le dans « Projets Audio » pour reprendre plus tard.'
+          : 'Projet audio sauvegardé ! Retrouvez-le dans « Projets » pour reprendre plus tard.'
       );
       reloadData();
     } catch {
@@ -1801,10 +2371,14 @@ export const AudioStudioModule: React.FC = () => {
     try {
       await deserializeAndLoadProject(proj.title, proj.projectJson, proj.id);
       setNotice(
-        isEn ? `Project "${proj.title}" opened!` : `Projet « ${proj.title} » rouvert pour édition.`
+        isEn
+          ? `Project "${proj.title}" opened!`
+          : `Projet « ${proj.title} » rouvert pour édition.`
       );
     } catch {
-      setNotice(isEn ? 'Could not reopen this project.' : 'Impossible de rouvrir ce projet audio.');
+      setNotice(
+        isEn ? 'Could not reopen this project.' : 'Impossible de rouvrir ce projet audio.'
+      );
     }
   };
 
@@ -1936,60 +2510,1111 @@ export const AudioStudioModule: React.FC = () => {
     e.target.value = '';
   };
 
-  // Pointer drag clip handlers on timeline
-  const handleClipPointerDown = (e: React.PointerEvent<HTMLDivElement>, clip: AudioClipItem, trackLocked?: boolean) => {
-    e.stopPropagation();
-    if (e.shiftKey) {
+  const handleSelectClip = (clipId: string) => {
+    if (isMultiSelectMode) {
       setSelectedClipIds((prev) =>
-        prev.includes(clip.id) ? prev.filter((x) => x !== clip.id) : [...prev, clip.id]
+        prev.includes(clipId) ? prev.filter((x) => x !== clipId) : [...prev, clipId]
       );
-      return;
-    }
-    setSelectedClipIds([clip.id]);
-    if (trackLocked) return;
-
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    pushHistory();
-    dragClipRef.current = {
-      clipId: clip.id,
-      startClientX: e.clientX,
-      origStartSec: clip.startTimeSec,
-    };
-  };
-
-  const handleClipPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragClipRef.current) return;
-    const dx = e.clientX - dragClipRef.current.startClientX;
-    const deltaSec = dx / zoomPxPerSec;
-    let nextSec = Math.max(0, dragClipRef.current.origStartSec + deltaSec);
-    if (snapEnabled) {
-      nextSec = Math.round(nextSec * 4) / 4;
     } else {
-      nextSec = Number(nextSec.toFixed(2));
-    }
-    const targetId = dragClipRef.current.clipId;
-    setClips((prev) => prev.map((c) => (c.id === targetId ? { ...c, startTimeSec: nextSec } : c)));
-  };
-
-  const handleClipPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (dragClipRef.current) {
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {
-        // noop
-      }
-      dragClipRef.current = null;
+      setSelectedClipIds([clipId]);
+      setIsInspectorOpen(true);
     }
   };
 
-  const timelineSecondsSpan = Math.max(16, Math.ceil(totalProjectDuration + 4));
-  const timelineWidthPx = Math.max(640, timelineSecondsSpan * zoomPxPerSec);
+  const timelineSecondsSpan = Math.max(20, Math.ceil(totalProjectDuration + 6));
+  const timelineWidthPx = Math.max(620, timelineSecondsSpan * zoomPxPerSec);
   const selectedClip = clips.find((c) => c.id === selectedClipIds[0]) || null;
 
-  return (
-    <div className="space-y-4">
+  const toolItems: StudioToolRailItem[] = useMemo(
+    () => [
+      { id: 'templates', label: isEn ? 'Templates' : 'Modèles', icon: LayoutTemplate },
+      { id: 'record', label: isEn ? 'Mic' : 'Micro', icon: Mic },
+      { id: 'import', label: isEn ? 'Import' : 'Importer', icon: Upload },
+      { id: 'synth', label: isEn ? 'Synth' : 'Synthé', icon: Music },
+      { id: 'online', label: isEn ? 'Online' : 'En ligne', icon: Globe },
+      { id: 'script', label: isEn ? 'Script' : 'Texte', icon: AlignLeft },
+      { id: 'fx', label: isEn ? 'Mix & FX' : 'Mix FX', icon: Sliders },
+      {
+        id: 'shalom',
+        label: 'SHALOM',
+        icon: FolderHeart,
+        badge: customTemplates.filter((t) => t.studioType === 'audio').length,
+      },
+      {
+        id: 'projects',
+        label: isEn ? 'Projects' : 'Projets',
+        icon: Archive,
+        badge: savedAudioProjects.length,
+      },
+    ],
+    [isEn, customTemplates, savedAudioProjects.length]
+  );
+
+  // LEFT DRAWER PANELS
+  const renderToolDrawerContent = () => {
+    if (activeToolTab === 'templates') {
+      return (
+        <div className="space-y-3 text-xs">
+          <div className="flex gap-1.5">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={templateQuery}
+                onChange={(e) => setTemplateQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearchOnlineTemplates();
+                }}
+                placeholder={isEn ? 'Podcast, worship, meditation...' : 'Podcast, louange, méditation...'}
+                className="w-full pl-8 pr-2.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => handleSearchOnlineTemplates()}
+              disabled={isSearchingOnline}
+              className="px-3 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-1 shrink-0"
+            >
+              {isSearchingOnline ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {['all', 'Verset', 'Méditation', 'Église', 'Louange'].map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => {
+                  setTemplateCategory(cat);
+                  handleSearchOnlineTemplates(templateQuery, cat, 1);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  templateCategory === cat
+                    ? 'bg-blue-700 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {cat === 'all' ? (isEn ? 'All' : 'Tous') : cat}
+              </button>
+            ))}
+          </div>
+
+          {onlineStatusMsg && (
+            <div className="text-[11px] font-medium text-blue-700 dark:text-blue-400">
+              {onlineStatusMsg}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+            {displayedAudioTemplates.map((tpl) => {
+              const title = isEn ? tpl.titleEn : tpl.titleFr;
+              const desc = isEn ? tpl.descEn : tpl.descFr;
+              const isSavingThis = savingResourceId === tpl.id;
+              const isSaved = customTemplates.some(
+                (t) => t.id === tpl.id && t.studioType === 'audio'
+              );
+              return (
+                <TemplatePreviewCard
+                  key={tpl.id}
+                  id={tpl.id}
+                  kind="audio"
+                  title={title}
+                  category={tpl.category}
+                  subtitle={desc}
+                  badgeColor={tpl.badgeColor}
+                  tracks={tpl.tracks}
+                  synthAdditions={tpl.synthAdditions}
+                  markers={tpl.markers}
+                  isSaved={isSaved}
+                  isSavingOffline={isSavingThis}
+                  onSaveOffline={() => handleSaveTemplateToShalom(tpl)}
+                  onSelectPreview={() => setPreviewingTemplate(tpl)}
+                  isEn={isEn}
+                />
+              );
+            })}
+          </div>
+
+          {templateHasMore && (
+            <button
+              type="button"
+              disabled={isLoadingMoreTemplates}
+              onClick={() => handleSearchOnlineTemplates(undefined, undefined, onlineTemplates.length ? 2 : 1)}
+              className="w-full py-2 rounded-xl border border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-400 font-bold hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            >
+              {isLoadingMoreTemplates ? (isEn ? 'Loading...' : 'Chargement...') : isEn ? 'Load more templates' : 'Charger plus de modèles'}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'record') {
+      return (
+        <div className="space-y-3 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5">
+            <div className="font-bold text-slate-900 dark:text-white">
+              {isEn ? 'Direct Voiceover / Sermons' : 'Enregistrement micro direct'}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {isEn
+                ? 'Records straight onto your currently selected track.'
+                : 'Enregistre directement sur la piste sélectionnée sur la timeline.'}
+            </p>
+            <button
+              type="button"
+              onClick={handleToggleMicRecord}
+              className={`w-full min-h-[46px] px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition ${
+                isRecordingMic
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
+                  : 'bg-blue-700 hover:bg-blue-800 text-white'
+              }`}
+            >
+              {isRecordingMic ? <Square className="w-4 h-4 fill-current" /> : <Mic className="w-4 h-4" />}
+              <span className="tabular-nums">
+                {isRecordingMic
+                  ? `${isEn ? 'Stop Recording' : 'Arrêter la prise'} (${micSeconds}s)`
+                  : isEn
+                    ? 'Record Voice'
+                    : 'Enregistrer ma voix'}
+              </span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'import') {
+      return (
+        <div className="space-y-3 text-xs">
+          <label className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center justify-center gap-2 cursor-pointer">
+            <Upload className="w-4 h-4" />
+            <span>{isEn ? 'Import Audio Files (MP3/WAV)' : 'Importer des sons (MP3/WAV/M4A)'}</span>
+            <input
+              type="file"
+              accept="audio/*"
+              multiple
+              onChange={handleImportAudioFiles}
+              className="hidden"
+            />
+          </label>
+
+          <div className="space-y-1.5">
+            <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+              <FileAudio className="w-3.5 h-3.5 text-amber-500" />
+              <span>{isEn ? 'From Parole Divine' : 'Depuis Parole Divine'}</span>
+            </div>
+            {recordings.filter((r) => r.mediaType === 'audio').length === 0 ? (
+              <p className="text-[11px] text-slate-500 italic">
+                {isEn ? 'No recordings in Parole Divine.' : 'Aucun enregistrement audio dans Parole Divine.'}
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                {recordings
+                  .filter((r) => r.mediaType === 'audio')
+                  .slice(0, 12)
+                  .map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => handleImportFromParole(r.id)}
+                      className="w-full text-left p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 flex items-center justify-between gap-2"
+                    >
+                      <span className="font-semibold truncate">{r.title}</span>
+                      <span className="text-[10px] text-blue-600 font-bold shrink-0">+ Piste</span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'synth') {
+      return (
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1">
+              {isEn ? 'Acoustic Pad / Instrument' : 'Accord / Instrument Synthé'}
+            </label>
+            <select
+              value={synthPreset}
+              onChange={(e) => setSynthPreset(e.target.value as SynthPresetId)}
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+            >
+              <option value="c_major">Accord Do majeur (Doux)</option>
+              <option value="g_warm">Accord Sol chaleureux</option>
+              <option value="a_minor">Accord La mineur (Prière)</option>
+              <option value="soft_bell">Cloche méditation</option>
+              <option value="chime">Carillon transition</option>
+              <option value="swell">Montée lumineuse</option>
+              <option value="metronome">Métronome 80 BPM</option>
+              <option value="silence">Silence (Espace)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1 tabular-nums">
+              {isEn ? 'Duration' : 'Durée'} : {synthDuration}s
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={30}
+              value={synthDuration}
+              onChange={(e) => setSynthDuration(Number(e.target.value))}
+              className="w-full accent-blue-700"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => handleGenerateSynthClip()}
+            className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>{isEn ? 'Generate & Insert' : 'Générer sur la piste'}</span>
+          </button>
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'online') {
+      return (
+        <div className="space-y-3 text-xs">
+          <div className="flex gap-1.5">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={onlineAudioQuery}
+                onChange={(e) => setOnlineAudioQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearchOnlineAudio();
+                }}
+                placeholder={isEn ? 'Piano, harp, bell, hymn...' : 'Piano, harpe, cloche, hymne...'}
+                className="w-full pl-8 pr-2.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => handleSearchOnlineAudio()}
+              disabled={isSearchingOnlineAudio}
+              className="px-3 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-1"
+            >
+              {isSearchingOnlineAudio ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Search className="w-3.5 h-3.5" />
+              )}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {['piano', 'harp', 'choir', 'bell', 'rain', 'organ'].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => {
+                  setOnlineAudioQuery(tag);
+                  handleSearchOnlineAudio(tag, 1);
+                }}
+                className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-[11px] font-semibold"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+
+          {onlineAudioError && (
+            <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-[11px]">
+              {onlineAudioError}
+            </div>
+          )}
+
+          <div className="space-y-2.5">
+            {onlineAudioItems.map((item) => {
+              const isBusy = loadingOnlineAudioId === item.id;
+              const isSaving = savingResourceId === item.id;
+              const isThisActive = onlinePlayerState.itemId === item.id;
+              const isThisPlaying = isThisActive && onlinePlayerState.playing;
+              const isThisLoading = isThisActive && onlinePlayerState.loading;
+              const activeDuration =
+                isThisActive && onlinePlayerState.duration > 0
+                  ? onlinePlayerState.duration
+                  : item.durationSec || 0;
+              const formatSec = (s: number) => {
+                if (!Number.isFinite(s) || s <= 0) return '0:00';
+                const total = Math.floor(s);
+                const m = Math.floor(total / 60);
+                const rem = total % 60;
+                return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+              };
+              const mimeLabel = item.mimeType.includes('ogg')
+                ? 'OGG'
+                : item.mimeType.includes('wav')
+                  ? 'WAV'
+                  : item.mimeType.includes('flac')
+                    ? 'FLAC'
+                    : item.mimeType.includes('mpeg') || item.mimeType.includes('mp3')
+                      ? 'MP3'
+                      : 'AUDIO';
+
+              return (
+                <div
+                  key={item.id}
+                  className={`p-2.5 rounded-xl border space-y-2 transition ${
+                    isThisActive
+                      ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700'
+                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold truncate text-slate-900 dark:text-white">
+                        {item.title}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold tabular-nums">
+                          {activeDuration > 0 ? formatSec(activeDuration) : 'Flux audio'}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold">
+                          {mimeLabel}
+                        </span>
+                        {(item.license || item.author) && (
+                          <span className="text-slate-500 dark:text-slate-400 truncate max-w-[160px]">
+                            {[item.author, item.license].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleOnlineAudioPreview(item)}
+                      className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 shrink-0 transition ${
+                        isThisPlaying
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {isThisLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : isThisPlaying ? (
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                      )}
+                      <span>
+                        {isThisPlaying
+                          ? isEn
+                            ? 'Pause'
+                            : 'Pause'
+                          : isEn
+                            ? 'Preview'
+                            : 'Écouter'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {isThisActive && (
+                    <div className="p-2 rounded-lg bg-white/80 dark:bg-[#081024] border border-slate-200 dark:border-slate-800 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold tabular-nums text-slate-600 dark:text-slate-300 w-9">
+                          {formatSec(onlinePlayerState.currentTime)}
+                        </span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={Math.max(1, activeDuration || 30)}
+                          step={0.25}
+                          value={Math.min(
+                            Math.max(1, activeDuration || 30),
+                            onlinePlayerState.currentTime
+                          )}
+                          onChange={(e) => seekOnlineAudioPreview(Number(e.target.value))}
+                          className="flex-1 accent-blue-700"
+                          aria-label="Position lecture"
+                        />
+                        <span className="text-[10px] font-bold tabular-nums text-slate-500 w-9 text-right">
+                          {activeDuration > 0 ? formatSec(activeDuration) : '--:--'}
+                        </span>
+                      </div>
+                      {onlinePlayerState.error && (
+                        <div className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                          {onlinePlayerState.error}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleInsertOnlineAudio(item)}
+                      className="flex-1 min-h-[38px] px-2 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-bold text-[11px] flex items-center justify-center gap-1"
+                    >
+                      {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      <span>{isEn ? 'Insert' : 'Piste'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => handleSaveOnlineAudioToShalom(item)}
+                      className="min-h-[38px] px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] flex items-center gap-1"
+                    >
+                      {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookmarkPlus className="w-3 h-3" />}
+                      <span>SHALOM</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleDownloadOnlineAudio(item)}
+                      title="Télécharger"
+                      className="min-h-[38px] px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleShareOnlineAudioDirect(item)}
+                      title="Partager sans enregistrer"
+                      className="min-h-[38px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {onlineAudioHasMore && (
+            <button
+              type="button"
+              onClick={() => handleSearchOnlineAudio(undefined, onlineAudioPage + 1)}
+              className="w-full py-2 rounded-xl border border-blue-300 text-blue-700 font-bold"
+            >
+              {isEn ? 'Load more sounds' : 'Charger plus de sons'}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'script') {
+      return (
+        <div className="space-y-3 text-xs">
+          <div className="flex flex-wrap items-center gap-1 p-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setScriptStyle((s) => ({ ...s, bold: !s.bold }))}
+              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+                scriptStyle.bold ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+              title="Gras"
+            >
+              <Bold className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setScriptStyle((s) => ({ ...s, italic: !s.italic }))}
+              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+                scriptStyle.italic ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+              title="Italique"
+            >
+              <Italic className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setScriptStyle((s) => ({ ...s, underline: !s.underline }))}
+              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+                scriptStyle.underline ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+              title="Souligné"
+            >
+              <Underline className="w-3.5 h-3.5" />
+            </button>
+            <span className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-0.5" />
+            <button
+              type="button"
+              onClick={() => setScriptStyle((s) => ({ ...s, align: 'left' }))}
+              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+                scriptStyle.align === 'left' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <AlignLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setScriptStyle((s) => ({ ...s, align: 'center' }))}
+              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+                scriptStyle.align === 'center' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <AlignCenter className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setScriptStyle((s) => ({ ...s, align: 'right' }))}
+              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+                scriptStyle.align === 'right' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <AlignRight className="w-3.5 h-3.5" />
+            </button>
+            <select
+              value={scriptFontSize}
+              onChange={(e) => setScriptFontSize(Number(e.target.value))}
+              className="ml-auto px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold"
+            >
+              {[12, 14, 16, 18, 22].map((sz) => (
+                <option key={sz} value={sz}>
+                  {sz}px
+                </option>
+              ))}
+            </select>
+          </div>
+          <textarea
+            value={scriptText}
+            onChange={(e) => setScriptText(e.target.value)}
+            rows={10}
+            placeholder={
+              isEn
+                ? 'Write your sermon, reading cue, or meditation prompt here...'
+                : 'Rédigez votre texte de lecture, exhortation ou prompteur ici...'
+            }
+            style={{ fontSize: `${scriptFontSize}px` }}
+            className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+              scriptStyle.bold ? 'font-bold' : ''
+            } ${scriptStyle.italic ? 'italic' : ''} ${
+              scriptStyle.underline ? 'underline' : ''
+            } text-${scriptStyle.align}`}
+          />
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'fx') {
+      return (
+        <div className="space-y-3 text-xs">
+          <div>
+            <label className="block font-bold mb-1 tabular-nums">
+              Master Gain : {Math.round(masterGain * 100)}%
+            </label>
+            <input
+              type="range"
+              min={0.2}
+              max={1.8}
+              step={0.05}
+              value={masterGain}
+              onChange={(e) => setMasterGain(Number(e.target.value))}
+              className="w-full accent-blue-700"
+            />
+          </div>
+          <div>
+            <label className="block font-bold mb-1 tabular-nums">
+              EQ Graves (120Hz) : {masterFx.eqLowDb} dB
+            </label>
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              step={1}
+              value={masterFx.eqLowDb}
+              onChange={(e) => setMasterFx((f) => ({ ...f, eqLowDb: Number(e.target.value) }))}
+              className="w-full accent-blue-700"
+            />
+          </div>
+          <div>
+            <label className="block font-bold mb-1 tabular-nums">
+              EQ Voix Médiums (1kHz) : {masterFx.eqMidDb} dB
+            </label>
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              step={1}
+              value={masterFx.eqMidDb}
+              onChange={(e) => setMasterFx((f) => ({ ...f, eqMidDb: Number(e.target.value) }))}
+              className="w-full accent-blue-700"
+            />
+          </div>
+          <div>
+            <label className="block font-bold mb-1 tabular-nums">
+              EQ Aigus Clarté (6.5kHz) : {masterFx.eqHighDb} dB
+            </label>
+            <input
+              type="range"
+              min={-12}
+              max={12}
+              step={1}
+              value={masterFx.eqHighDb}
+              onChange={(e) => setMasterFx((f) => ({ ...f, eqHighDb: Number(e.target.value) }))}
+              className="w-full accent-blue-700"
+            />
+          </div>
+          <div>
+            <label className="block font-bold mb-1 tabular-nums">
+              Réverbération Salle : {Math.round(masterFx.reverbMix * 100)}%
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={0.6}
+              step={0.02}
+              value={masterFx.reverbMix}
+              onChange={(e) => setMasterFx((f) => ({ ...f, reverbMix: Number(e.target.value) }))}
+              className="w-full accent-amber-500"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (activeToolTab === 'shalom') {
+      return (
+        <ShalomResourcesPanel
+          studioType="audio"
+          savedItems={customTemplates}
+          isEn={isEn}
+          onApplyItem={handleApplyShalomResource}
+          onDeleteItem={handleDeleteShalomResource}
+        />
+      );
+    }
+
+    if (activeToolTab === 'projects') {
+      return (
+        <div className="space-y-2.5 text-xs">
+          {savedAudioProjects.length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic p-3 text-center">
+              {isEn ? 'No saved audio projects yet.' : 'Aucun projet audio sauvegardé pour l’instant.'}
+            </p>
+          ) : (
+            savedAudioProjects.map((proj) => (
+              <div
+                key={proj.id}
+                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2"
+              >
+                <div className="min-w-0">
+                  <div className="font-bold truncate">{proj.title}</div>
+                  <div className="text-[10px] text-slate-500">
+                    {proj.durationSeconds || 0}s · {new Date(proj.updatedAt || proj.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleLoadSavedProject(proj)}
+                    className="px-2.5 py-1.5 rounded-lg bg-blue-700 text-white font-bold text-[11px]"
+                  >
+                    {isEn ? 'Open' : 'Ouvrir'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSavedProject(proj.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // RIGHT PROPERTIES INSPECTOR
+  const renderInspectorContent = () => {
+    if (!selectedClip) {
+      return (
+        <div className="p-4 text-center text-xs text-slate-500">
+          {isEn
+            ? 'Select a clip on the timeline to trim edges, fade, pan or adjust speed.'
+            : 'Touchez un extrait sur la timeline pour rogner ses bords, ajuster le volume ou les fondus.'}
+        </div>
+      );
+    }
+    const maxDur = selectedClip.buffer.duration;
+    return (
+      <div className="space-y-3.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-extrabold text-slate-900 dark:text-white truncate">
+            {selectedClip.name}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => duplicateClip(selectedClip)}
+              title="Dupliquer"
+              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => removeClip(selectedClip.id)}
+              title="Supprimer"
+              className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-600"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <WaveformPreview
+          buffer={selectedClip.buffer}
+          trimStart={selectedClip.trimStart}
+          trimEnd={selectedClip.trimEnd}
+          color={
+            tracks.find((t) => t.id === selectedClip.trackId)?.color || '#2563eb'
+          }
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              {isEn ? 'Timeline Start (s)' : 'Position (s)'}
+            </label>
+            <input
+              type="number"
+              min={0}
+              step={0.1}
+              value={selectedClip.startTimeSec}
+              onChange={(e) =>
+                updateClip(selectedClip.id, {
+                  startTimeSec: Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              {isEn ? 'Target Track' : 'Piste'}
+            </label>
+            <select
+              value={selectedClip.trackId}
+              onChange={(e) => updateClip(selectedClip.id, { trackId: e.target.value })}
+              className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+            >
+              {tracks.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              {isEn ? 'Trim In (s)' : 'Coupe Début (s)'}
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={Math.max(0, selectedClip.trimEnd - 0.15)}
+              step={0.05}
+              value={selectedClip.trimStart}
+              onChange={(e) =>
+                updateClip(selectedClip.id, {
+                  trimStart: Math.max(
+                    0,
+                    Math.min(selectedClip.trimEnd - 0.15, parseFloat(e.target.value) || 0)
+                  ),
+                })
+              }
+              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              {isEn ? 'Trim Out (s)' : 'Coupe Fin (s)'}
+            </label>
+            <input
+              type="number"
+              min={selectedClip.trimStart + 0.15}
+              max={Number(maxDur.toFixed(2))}
+              step={0.05}
+              value={selectedClip.trimEnd}
+              onChange={(e) =>
+                updateClip(selectedClip.id, {
+                  trimEnd: Math.min(
+                    maxDur,
+                    Math.max(selectedClip.trimStart + 0.15, parseFloat(e.target.value) || maxDur)
+                  ),
+                })
+              }
+              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              Fade In (s)
+            </label>
+            <input
+              type="number"
+              step={0.1}
+              min={0}
+              max={5}
+              value={selectedClip.fadeInSec}
+              onChange={(e) =>
+                updateClip(selectedClip.id, { fadeInSec: Math.max(0, parseFloat(e.target.value) || 0) })
+              }
+              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+              Fade Out (s)
+            </label>
+            <input
+              type="number"
+              step={0.1}
+              min={0}
+              max={5}
+              value={selectedClip.fadeOutSec}
+              onChange={(e) =>
+                updateClip(selectedClip.id, { fadeOutSec: Math.max(0, parseFloat(e.target.value) || 0) })
+              }
+              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-500 mb-1 tabular-nums">
+            {isEn ? 'Gain' : 'Volume'} : {Math.round(selectedClip.gain * 100)}%
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.05}
+            value={selectedClip.gain}
+            onChange={(e) => updateClip(selectedClip.id, { gain: parseFloat(e.target.value) })}
+            className="w-full accent-blue-700"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-500 mb-1 tabular-nums">
+            Pan : {selectedClip.pan === 0 ? 'Centre' : selectedClip.pan < 0 ? `G${Math.abs(Math.round(selectedClip.pan * 100))}` : `D${Math.round(selectedClip.pan * 100)}`}
+          </label>
+          <input
+            type="range"
+            min={-1}
+            max={1}
+            step={0.1}
+            value={selectedClip.pan}
+            onChange={(e) => updateClip(selectedClip.id, { pan: parseFloat(e.target.value) })}
+            className="w-full accent-amber-600"
+          />
+        </div>
+
+        <div>
+          <span className="block text-[11px] font-semibold text-slate-500 mb-1">
+            {isEn ? 'Playback Speed' : 'Vitesse'}
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {[0.75, 0.9, 1.0, 1.15, 1.3].map((rate) => (
+              <button
+                key={rate}
+                type="button"
+                onClick={() => updateClip(selectedClip.id, { playbackRate: rate })}
+                className={`px-2 py-1 rounded-lg font-bold tabular-nums ${
+                  selectedClip.playbackRate === rate
+                    ? 'bg-blue-700 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800'
+                }`}
+              >
+                {rate}x
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-100 dark:border-slate-800">
+          <input
+            type="checkbox"
+            checked={selectedClip.removeSilence}
+            onChange={(e) => updateClip(selectedClip.id, { removeSilence: e.target.checked })}
+            className="accent-blue-700 w-4 h-4"
+          />
+          <span className="font-semibold flex items-center gap-1 text-slate-700 dark:text-slate-200">
+            <Wand2 className="w-3.5 h-3.5 text-amber-500" />
+            <span>{isEn ? 'Auto-trim silences' : 'Supprimer les silences'}</span>
+          </span>
+        </label>
+      </div>
+    );
+  };
+
+  // SELECTION TOOLBAR ABOVE TIMELINE
+  const selectionToolbar = (
+    <div className="flex flex-wrap items-center gap-1.5 w-full text-xs">
+      <button
+        type="button"
+        onClick={handleTogglePreview}
+        disabled={clips.length === 0}
+        className={`min-h-[38px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition disabled:opacity-40 ${
+          isPlayingPreview
+            ? 'bg-rose-600 text-white'
+            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+        }`}
+      >
+        {isPlayingPreview ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+        <span>{isPlayingPreview ? (isEn ? 'Stop' : 'Arrêter') : isEn ? 'Play' : 'Lire'}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={handleToggleMicRecord}
+        className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 ${
+          isRecordingMic
+            ? 'bg-rose-600 text-white animate-pulse'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+        }`}
+      >
+        <Mic className="w-3.5 h-3.5" />
+        <span className="tabular-nums">{isRecordingMic ? `${micSeconds}s` : 'Rec'}</span>
+      </button>
+
+      <span className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
+      <button
+        type="button"
+        onClick={splitSelectedClipAtPlayhead}
+        disabled={selectedClipIds.length !== 1}
+        title="Scinder à la tête de lecture"
+        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1 disabled:opacity-40"
+      >
+        <Scissors className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">{isEn ? 'Split' : 'Scinder'}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={duplicateSelectedBatch}
+        disabled={selectedClipIds.length === 0}
+        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1 disabled:opacity-40"
+      >
+        <Copy className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">{isEn ? 'Duplicate' : 'Dupliquer'}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={handleCopySelectedClips}
+        disabled={selectedClipIds.length === 0}
+        title="Ctrl+C"
+        className="min-h-[38px] px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold disabled:opacity-40"
+      >
+        <Copy className="w-3.5 h-3.5" />
+      </button>
+
+      <button
+        type="button"
+        onClick={handlePasteCopiedClips}
+        disabled={copiedClips.length === 0}
+        title="Ctrl+V"
+        className="min-h-[38px] px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold disabled:opacity-40"
+      >
+        <ClipboardPaste className="w-3.5 h-3.5" />
+      </button>
+
+      <button
+        type="button"
+        onClick={deleteSelectedBatch}
+        disabled={selectedClipIds.length === 0}
+        className="min-h-[38px] px-2 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-600 font-semibold disabled:opacity-40"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+
+      <span className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
+      <button
+        type="button"
+        onClick={() => setIsMultiSelectMode((m) => !m)}
+        className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 ${
+          isMultiSelectMode
+            ? 'bg-blue-700 text-white'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+        }`}
+      >
+        <CheckSquare className="w-3.5 h-3.5" />
+        <span className="hidden md:inline">{isEn ? 'Multi' : 'Multi'}</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setSnapEnabled((s) => !s)}
+        className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 ${
+          snapEnabled
+            ? 'bg-amber-500 text-slate-950'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+        }`}
+      >
+        <Magnet className="w-3.5 h-3.5" />
+      </button>
+
+      <button
+        type="button"
+        onClick={addMarkerAtPlayhead}
+        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1"
+      >
+        <Flag className="w-3.5 h-3.5 text-amber-500" />
+        <span className="hidden xl:inline">{isEn ? 'Cue' : 'Repère'}</span>
+      </button>
+
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setZoomPxPerSec((z) => Math.max(20, z - 12))}
+          aria-label="Dézoomer"
+          className="min-h-[34px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+        >
+          <ZoomOut className="w-3.5 h-3.5" />
+        </button>
+        <span className="text-[11px] font-bold tabular-nums px-1">{zoomPxPerSec}px/s</span>
+        <button
+          type="button"
+          onClick={() => setZoomPxPerSec((z) => Math.min(140, z + 12))}
+          aria-label="Zoomer"
+          className="min-h-[34px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+        >
+          <ZoomIn className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleAddTrack}
+          className="min-h-[34px] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{isEn ? 'Track' : 'Piste'}</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  // CENTER MULTI-TRACK DAW TIMELINE STAGE
+  const centerStage = (
+    <div className="w-full flex-1 flex flex-col gap-3">
       {notice && (
-        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-2">
+        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between gap-2">
           <span className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{notice}</span>
@@ -2001,24 +3626,24 @@ export const AudioStudioModule: React.FC = () => {
       )}
 
       {recoverableDraft && (
-        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs flex flex-wrap items-center justify-between gap-2">
           <span className="font-semibold text-amber-900 dark:text-amber-200">
             {isEn
-              ? 'An unsaved audio studio session was found. Resume where you left off?'
-              : 'Un brouillon audio automatique a été retrouvé. Reprendre votre montage ?'}
+              ? 'An unsaved audio session was found. Resume?'
+              : 'Un brouillon audio automatique a été retrouvé. Reprendre ?'}
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleRestoreDraft}
-              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold"
+              className="px-3 py-1 rounded-lg bg-amber-600 text-white font-bold"
             >
               {isEn ? 'Resume' : 'Reprendre'}
             </button>
             <button
               type="button"
               onClick={() => setRecoverableDraft(false)}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 font-semibold"
+              className="px-2 py-1 text-slate-500 underline"
             >
               {isEn ? 'Dismiss' : 'Ignorer'}
             </button>
@@ -2026,1433 +3651,417 @@ export const AudioStudioModule: React.FC = () => {
         </div>
       )}
 
-      {/* Canva-Style Top Audio Studio Command Bar */}
-      <div className="p-3 rounded-2xl bg-[#071128] text-white border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs shadow-sm">
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[200px]">
-          <FileAudio className="w-4 h-4 text-amber-400 shrink-0" />
-          <input
-            type="text"
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/15 font-bold text-white placeholder-white/50 min-w-[160px] max-w-[260px]"
-            placeholder={isEn ? 'Project title...' : 'Titre du projet audio...'}
-          />
-
-          <div className="flex items-center gap-1 border-l border-white/15 pl-2">
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              title={isEn ? 'Undo (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-35 transition"
-            >
-              <Undo2 className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              title={isEn ? 'Redo (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-35 transition"
-            >
-              <Redo2 className="w-4 h-4" />
-            </button>
-          </div>
-
+      {selectedClipIds.length > 1 && (
+        <div className="px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-bold text-blue-800 dark:text-blue-300">
+            {selectedClipIds.length} {isEn ? 'selected' : 'sélectionnés'}
+          </span>
           <button
             type="button"
-            onClick={() => setSnapEnabled((s) => !s)}
-            className={`px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 whitespace-nowrap transition ${
-              snapEnabled ? 'bg-blue-600 text-white' : 'bg-white/10 text-slate-300'
-            }`}
-            title={isEn ? 'Snap to 0.25s grid' : 'Aimant grille 0.25s'}
+            onClick={() => shiftSelectedBatch(-0.5)}
+            className="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 font-bold"
           >
-            <Magnet className="w-3.5 h-3.5" />
-            <span>{isEn ? 'Snap' : 'Aimant'}</span>
+            -0.5s
           </button>
-
           <button
             type="button"
-            onClick={splitSelectedClipAtPlayhead}
-            disabled={selectedClipIds.length !== 1}
-            className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-35 font-semibold flex items-center gap-1 whitespace-nowrap"
-            title={isEn ? 'Split selected clip at red playhead' : 'Scinder l’extrait à la tête de lecture'}
+            onClick={() => shiftSelectedBatch(0.5)}
+            className="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 font-bold"
           >
-            <Scissors className="w-3.5 h-3.5 text-amber-400" />
-            <span>{isEn ? 'Split' : 'Scinder'}</span>
+            +0.5s
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedClipIds([])}
+            className="ml-auto underline text-slate-500"
+          >
+            {isEn ? 'Clear' : 'Tout désélectionner'}
           </button>
         </div>
+      )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2 py-1">
-            <button
-              type="button"
-              onClick={() => setZoomPxPerSec((z) => Math.max(24, z - 12))}
-              className="p-1 hover:text-amber-400"
-              title="Zoom -"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <span className="tabular-nums text-[11px] font-bold w-11 text-center">
-              {Math.round((zoomPxPerSec / 48) * 100)}%
-            </span>
-            <button
-              type="button"
-              onClick={() => setZoomPxPerSec((z) => Math.min(120, z + 12))}
-              className="p-1 hover:text-amber-400"
-              title="Zoom +"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-          </div>
+      {/* Multi-Track Interactive Timeline Matrix */}
+      <div className="flex-1 min-h-[340px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b152c] overflow-hidden flex flex-col shadow-xs">
+        <div className="flex flex-1 overflow-x-auto">
+          {/* Left Sticky Track Headers Column */}
+          <div className="w-[180px] sm:w-[220px] shrink-0 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#091228] flex flex-col">
+            <div className="h-9 px-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <span>{isEn ? 'Tracks' : 'Pistes'} ({tracks.length})</span>
+              </span>
+              <span className="tabular-nums text-blue-700 dark:text-blue-400">
+                {playheadSec.toFixed(1)}s
+              </span>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowPreviewModal(true)}
-            disabled={clips.length === 0}
-            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-40 font-bold flex items-center gap-1.5 whitespace-nowrap"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>{isEn ? 'Preview' : 'Aperçu'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSaveEditableProject}
-            disabled={isSavingProject || clips.length === 0}
-            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold flex items-center gap-1.5 whitespace-nowrap"
-          >
-            {isSavingProject ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            <span>{isEn ? 'Save Project' : 'Sauver projet'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main 2-Column Audio Studio Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* Left Tool Sidebar (Canva-like tabs) */}
-        <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 overflow-hidden text-xs">
-          <div className="grid grid-cols-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70">
-            {[
-              { id: 'elements', icon: Mic, label: isEn ? 'Sounds' : 'Sons' },
-              { id: 'templates', icon: Sparkles, label: isEn ? 'Templates' : 'Modèles' },
-              { id: 'script', icon: AlignLeft, label: 'Script' },
-              { id: 'fx', icon: Sliders, label: 'Mix/FX' },
-              { id: 'projects', icon: FolderOpen, label: isEn ? 'Saved' : 'Projets' },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const active = activeToolTab === tab.id;
+            {tracks.map((tr, trIdx) => {
+              const isSelectedTr = selectedTrackId === tr.id;
               return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveToolTab(tab.id as typeof activeToolTab)}
-                  className={`py-2.5 px-1 flex flex-col items-center justify-center gap-1 font-bold transition ${
-                    active
-                      ? 'bg-white dark:bg-[#0c1631] text-blue-700 dark:text-amber-400 border-b-2 border-blue-700 dark:border-amber-400'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                <div
+                  key={tr.id}
+                  onClick={() => setSelectedTrackId(tr.id)}
+                  className={`h-[86px] px-2.5 py-2 border-b border-slate-200/80 dark:border-slate-800 flex flex-col justify-between cursor-pointer transition ${
+                    isSelectedTr ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-[10px] leading-none">{tab.label}</span>
-                </button>
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: tr.color }}
+                      />
+                      <span className="text-[11px] font-bold text-slate-900 dark:text-white truncate">
+                        {tr.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          moveTrackOrder(tr.id, -1);
+                        }}
+                        disabled={trIdx === 0}
+                        className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-25"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          moveTrackOrder(tr.id, 1);
+                        }}
+                        disabled={trIdx === tracks.length - 1}
+                        className="p-0.5 text-slate-400 hover:text-slate-700 disabled:opacity-25"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                      {tracks.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeTrack(tr.id);
+                          }}
+                          className="p-0.5 text-slate-400 hover:text-rose-600"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateTrack(tr.id, { muted: !tr.muted });
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        tr.muted
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {tr.muted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateTrack(tr.id, { solo: !tr.solo });
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        tr.solo
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      S
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateTrack(tr.id, { locked: !tr.locked });
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        tr.locked
+                          ? 'bg-blue-700 text-white'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {tr.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1.5}
+                      step={0.05}
+                      value={tr.volume}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => updateTrack(tr.id, { volume: parseFloat(e.target.value) })}
+                      className="flex-1 min-w-0 accent-blue-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        chainTrackSequentially(tr.id);
+                      }}
+                      title="Coller bout à bout"
+                      className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[9px] font-bold"
+                    >
+                      ≡
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
 
-          <div className="p-4 space-y-4 max-h-[540px] overflow-y-auto">
-            {activeToolTab === 'templates' && (
-              <div className="space-y-3">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSearchOnlineTemplates();
-                  }}
-                  className="flex gap-1.5"
-                >
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={templateQuery}
-                      onChange={(e) => setTemplateQuery(e.target.value)}
-                      placeholder={
-                        isEn
-                          ? 'Search online (prayer, sermon, choir...)'
-                          : 'Rechercher en ligne (prière, psaume, chœur...)'
-                      }
-                      className="w-full pl-8 pr-2.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSearchingOnline}
-                    className="px-3 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-bold flex items-center gap-1 whitespace-nowrap"
+          {/* Right Scrollable Ruler + Clip Lanes */}
+          <div className="flex-1 overflow-x-auto relative bg-slate-100/70 dark:bg-[#060d1e]">
+            <div style={{ width: `${timelineWidthPx}px` }} className="relative min-h-full">
+              {/* Draggable Interactive Time Ruler */}
+              <div
+                ref={audioRulerRef}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  isScrubbingAudioRef.current = true;
+                  scrubAudioFromClientX(e.clientX);
+                }}
+                className="h-9 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0d1935] relative cursor-ew-resize select-none touch-none"
+              >
+                {Array.from({ length: timelineSecondsSpan + 1 }).map((_, sec) => (
+                  <div
+                    key={sec}
+                    style={{ left: `${sec * zoomPxPerSec}px` }}
+                    className="absolute top-0 bottom-0 border-l border-slate-300/60 dark:border-slate-700/60 pl-1 text-[10px] text-slate-500 tabular-nums pt-1"
                   >
-                    {isSearchingOnline ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Globe className="w-3.5 h-3.5" />
-                    )}
-                    <span>{isEn ? 'Search' : 'En ligne'}</span>
-                  </button>
-                </form>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {['all', 'Prière', 'Verset', 'Méditation', 'Église', 'Louange'].map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        setTemplateCategory(cat);
-                        handleSearchOnlineTemplates(templateQuery, cat);
-                      }}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition whitespace-nowrap ${
-                        templateCategory === cat
-                          ? 'bg-blue-700 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      {cat === 'all' ? (isEn ? 'All' : 'Tous') : cat}
-                    </button>
-                  ))}
-                </div>
-
-                {onlineStatusMsg && (
-                  <p className="text-[11px] font-medium text-blue-700 dark:text-amber-300">
-                    {onlineStatusMsg}
-                  </p>
-                )}
-
-                {savedAudioTemplates.length > 0 && (
-                  <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                      {isEn ? 'My Kept Online Templates' : 'Mes modèles conservés'} ({savedAudioTemplates.length})
-                    </p>
-                    {savedAudioTemplates.map((st) => (
-                      <div
-                        key={st.id}
-                        className="relative p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 flex items-center justify-between gap-2"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleApplySavedOnlineTemplate(st)}
-                          className="flex-1 text-left min-w-0"
-                        >
-                          <div className="font-bold text-slate-900 dark:text-white truncate text-xs">
-                            {st.title}
-                          </div>
-                          <div className="text-[10px] text-slate-500 truncate">{st.category}</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSavedOnlineTemplate(st.id)}
-                          aria-label="Supprimer modèle audio conservé"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 shrink-0"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                    {sec % 2 === 0 ? `${sec}s` : ''}
                   </div>
-                )}
-
-                {displayedAudioTemplates.map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => handleApplyTemplate(tpl)}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 bg-slate-50 dark:bg-slate-900/60 text-left space-y-1 transition"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-slate-900 dark:text-white truncate">
-                        {isEn ? tpl.titleEn : tpl.titleFr}
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {tpl.source && tpl.source !== 'local' && (
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                            {tpl.source === 'online-live' ? 'IA' : 'En ligne'}
-                          </span>
-                        )}
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: tpl.badgeColor }}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {isEn ? tpl.descEn : tpl.descFr}
-                    </p>
-                  </button>
                 ))}
 
-                {templateHasMore && (
+                {markers.map((mk) => (
                   <button
+                    key={mk.id}
                     type="button"
-                    disabled={isLoadingMoreTemplates}
-                    onClick={() => handleSearchOnlineTemplates(templateQuery, templateCategory, templatePage + 1)}
-                    className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-amber-400 font-bold text-xs flex items-center justify-center gap-1.5 transition"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPlayheadSec(mk.timeSec);
+                    }}
+                    style={{ left: `${mk.timeSec * zoomPxPerSec}px`, backgroundColor: mk.color }}
+                    className="absolute bottom-0.5 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-950 shadow-xs z-20"
                   >
-                    {isLoadingMoreTemplates ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="w-3.5 h-3.5" />
-                    )}
-                    <span>{isEn ? 'Load more online templates' : 'Charger plus de modèles en ligne'}</span>
+                    {mk.label}
                   </button>
-                )}
+                ))}
               </div>
-            )}
 
-            {activeToolTab === 'elements' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
-                    {isEn ? 'Target Track' : 'Piste cible pour l’ajout'}
-                  </label>
-                  <select
-                    value={selectedTrackId}
-                    onChange={(e) => setSelectedTrackId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-semibold"
-                  >
-                    {tracks.map((tr) => (
-                      <option key={tr.id} value={tr.id}>
-                        {tr.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleToggleMicRecord}
-                    className={`w-full px-3.5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition ${
-                      isRecordingMic
-                        ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
-                        : 'bg-blue-700 hover:bg-blue-800 text-white'
+              {/* Track Clip Lanes with Real Waveforms & Edge Trimming */}
+              {tracks.map((tr) => {
+                const laneClips = clips.filter((c) => c.trackId === tr.id);
+                return (
+                  <div
+                    key={tr.id}
+                    onClick={() => setSelectedTrackId(tr.id)}
+                    className={`h-[86px] border-b border-slate-200/70 dark:border-slate-800 relative ${
+                      selectedTrackId === tr.id ? 'bg-blue-50/30 dark:bg-blue-950/10' : ''
                     }`}
                   >
-                    {isRecordingMic ? (
-                      <>
-                        <Square className="w-4 h-4 fill-current" />
-                        <span>
-                          {isEn ? `Stop Mic (${micSeconds}s)` : `Arrêter micro (${micSeconds}s)`}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="w-4 h-4" />
-                        <span>{isEn ? 'Record Voice / Mic' : 'Enregistrer voix au micro'}</span>
-                      </>
-                    )}
-                  </button>
-
-                  <label className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-semibold flex items-center justify-center gap-2 cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    <span>{isEn ? 'Import Audio File(s)' : 'Importer fichiers audio'}</span>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      multiple
-                      onChange={handleImportAudioFiles}
-                      className="hidden"
-                    />
-                  </label>
-
-                  {recordings.length > 0 && (
-                    <select
-                      defaultValue=""
-                      onChange={(e) => {
-                        if (e.target.value) handleImportFromParole(e.target.value);
-                        e.target.value = '';
-                      }}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-semibold"
-                    >
-                      <option value="">
-                        {isEn ? '+ Pull from Parole Divine' : '+ Importer depuis Parole Divine'}
-                      </option>
-                      {recordings.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.title} ({r.mediaType === 'video' ? 'vidéo→audio' : 'audio'})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* Built-in Offline Harmonic & Foley Library */}
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                      <Music className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{isEn ? 'Built-in Sound Elements' : 'Éléments sonores intégrés'}</span>
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={1}
-                        max={30}
-                        value={synthDuration}
-                        onChange={(e) =>
-                          setSynthDuration(Math.max(1, Math.min(30, parseInt(e.target.value, 10) || 4)))
-                        }
-                        className="w-12 px-1.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center tabular-nums font-bold"
-                      />
-                      <span className="text-[11px] text-slate-500">s</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { id: 'c_major', fr: 'Accord Do Majeur', en: 'C Major Pad' },
-                        { id: 'g_warm', fr: 'Accord Sol Chaleur', en: 'G Warm Pad' },
-                        { id: 'a_minor', fr: 'Accord La Mineur', en: 'A Minor Pad' },
-                        { id: 'soft_bell', fr: 'Cloche Méditation', en: 'Meditation Bell' },
-                        { id: 'chime', fr: 'Carillon Intro', en: 'Intro Chime' },
-                        { id: 'swell', fr: 'Montée Douce', en: 'Warm Swell' },
-                        { id: 'metronome', fr: 'Métronome 80 BPM', en: 'Metronome 80 BPM' },
-                        { id: 'silence', fr: 'Silence Calibré', en: 'Clean Silence' },
-                      ] as const
-                    ).map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setSynthPreset(item.id);
-                          handleGenerateSynthClip(item.id);
-                        }}
-                        className="px-2.5 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 border border-amber-200/80 dark:border-amber-900/50 text-amber-900 dark:text-amber-200 font-semibold text-left truncate"
-                      >
-                        + {isEn ? item.en : item.fr}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeToolTab === 'script' && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {isEn ? 'Teleprompter / Voice Script' : 'Prompteur / Script vocal'}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setScriptFontSize((s) => Math.max(11, s - 2))}
-                        className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold"
-                      >
-                        A-
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setScriptFontSize((s) => Math.min(24, s + 2))}
-                        className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold"
-                      >
-                        A+
-                      </button>
-                    </div>
-                  </div>
-                  {/* Formatage texte script : Gras, Italique, Souligné, Alignement */}
-                  <div className="flex flex-wrap items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setScriptStyle((st) => ({ ...st, bold: !st.bold }))}
-                      className={`px-2 py-1 rounded font-black text-[11px] ${
-                        scriptStyle.bold
-                          ? 'bg-blue-700 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                      }`}
-                      title="Gras"
-                    >
-                      G
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setScriptStyle((st) => ({ ...st, italic: !st.italic }))}
-                      className={`px-2 py-1 rounded italic font-serif font-bold text-[11px] ${
-                        scriptStyle.italic
-                          ? 'bg-blue-700 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                      }`}
-                      title="Italique"
-                    >
-                      I
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setScriptStyle((st) => ({ ...st, underline: !st.underline }))}
-                      className={`px-2 py-1 rounded underline font-bold text-[11px] ${
-                        scriptStyle.underline
-                          ? 'bg-blue-700 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                      }`}
-                      title="Souligné"
-                    >
-                      S
-                    </button>
-                    {(['left', 'center', 'right'] as const).map((al) => {
-                      const Icon = al === 'left' ? AlignLeft : al === 'center' ? AlignCenter : AlignRight;
+                    {laneClips.map((clip) => {
+                      const activeDur =
+                        Math.max(0.15, clip.trimEnd - clip.trimStart) / clip.playbackRate;
                       return (
-                        <button
-                          key={al}
-                          type="button"
-                          onClick={() => setScriptStyle((st) => ({ ...st, align: al }))}
-                          className={`p-1 rounded ${
-                            scriptStyle.align === al
-                              ? 'bg-blue-700 text-white'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                        </button>
+                        <WaveformClipView
+                          key={clip.id}
+                          id={clip.id}
+                          name={clip.name}
+                          color={tr.color}
+                          buffer={clip.buffer}
+                          leftPx={clip.startTimeSec * zoomPxPerSec}
+                          widthPx={activeDur * zoomPxPerSec}
+                          durationSec={clip.buffer.duration}
+                          trimStartSec={clip.trimStart}
+                          trimEndSec={clip.trimEnd}
+                          fadeInSec={clip.fadeInSec}
+                          fadeOutSec={clip.fadeOutSec}
+                          muted={tr.muted}
+                          locked={Boolean(tr.locked)}
+                          selected={selectedClipIds.includes(clip.id)}
+                          pxPerSec={zoomPxPerSec * clip.playbackRate}
+                          startTimeSec={clip.startTimeSec}
+                          onSelect={() => handleSelectClip(clip.id)}
+                          onMoveCommit={(nextStart) => {
+                            pushHistory();
+                            const snapped = snapEnabled
+                              ? Math.round(nextStart * 4) / 4
+                              : nextStart;
+                            updateClip(clip.id, { startTimeSec: Math.max(0, snapped) });
+                          }}
+                          onTrimCommit={(nextTrimStart, nextTrimEnd, nextStartSecDelta) => {
+                            pushHistory();
+                            const clampedStart = Math.max(
+                              0,
+                              Math.min(nextTrimEnd - 0.15, nextTrimStart)
+                            );
+                            const clampedEnd = Math.min(
+                              clip.buffer.duration,
+                              Math.max(clampedStart + 0.15, nextTrimEnd)
+                            );
+                            updateClip(clip.id, {
+                              trimStart: clampedStart,
+                              trimEnd: clampedEnd,
+                              startTimeSec: Math.max(
+                                0,
+                                Number((clip.startTimeSec + nextStartSecDelta / clip.playbackRate).toFixed(2))
+                              ),
+                            });
+                          }}
+                        />
                       );
                     })}
                   </div>
-                  <textarea
-                    rows={6}
-                    value={scriptText}
-                    onChange={(e) => setScriptText(e.target.value)}
-                    style={{
-                      fontSize: `${scriptFontSize}px`,
-                      fontWeight: scriptStyle.bold ? 700 : 400,
-                      fontStyle: scriptStyle.italic ? 'italic' : 'normal',
-                      textDecorationLine: scriptStyle.underline ? 'underline' : 'none',
-                      textAlign: scriptStyle.align,
-                    }}
-                    placeholder={
-                      isEn
-                        ? 'Write your sermon points, Bible verse, or script to read while recording...'
-                        : 'Rédigez votre verset, exhortation ou texte à lire pendant l’enregistrement micro...'
-                    }
-                    className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 leading-relaxed"
-                  />
-                </div>
+                );
+              })}
 
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1.5">
-                      <Flag className="w-3.5 h-3.5 text-blue-600" />
-                      <span>
-                        {isEn
-                          ? `Timeline Markers (${markers.length})`
-                          : `Repères temporels (${markers.length})`}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={addMarkerAtPlayhead}
-                      className="px-2.5 py-1 rounded-lg bg-blue-700 text-white font-bold"
-                    >
-                      + @ {playheadSec.toFixed(1)}s
-                    </button>
-                  </div>
-
-                  {markers.map((mk) => (
-                    <div
-                      key={mk.id}
-                      className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setPlayheadSec(mk.timeSec)}
-                        className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold tabular-nums shrink-0"
-                      >
-                        {mk.timeSec.toFixed(1)}s
-                      </button>
-                      <input
-                        type="text"
-                        value={mk.label}
-                        onChange={(e) =>
-                          setMarkers((prev) =>
-                            prev.map((m) => (m.id === mk.id ? { ...m, label: e.target.value } : m))
-                          )
-                        }
-                        className="flex-1 bg-transparent font-semibold min-w-0 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setMarkers((prev) => prev.filter((m) => m.id !== mk.id))}
-                        className="p-1 text-red-500"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              {/* Global Vertical Playhead */}
+              <div
+                style={{ left: `${playheadSec * zoomPxPerSec}px` }}
+                className="absolute top-0 bottom-0 w-0.5 bg-rose-500 pointer-events-none z-30 shadow-[0_0_8px_rgba(244,63,94,0.8)]"
+              >
+                <div className="w-3 h-3 -translate-x-1/2 rotate-45 bg-rose-500 rounded-xs" />
               </div>
-            )}
-
-            {activeToolTab === 'fx' && (
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between font-bold mb-1">
-                    <span>{isEn ? 'Master Output Volume' : 'Volume général (Master)'}</span>
-                    <span className="tabular-nums">{Math.round(masterGain * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0.2}
-                    max={1.6}
-                    step={0.05}
-                    value={masterGain}
-                    onChange={(e) => setMasterGain(parseFloat(e.target.value))}
-                    className="w-full accent-blue-700"
-                  />
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {isEn ? 'Master 3-Band Equalizer' : 'Égaliseur 3 bandes (Master)'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setMasterFx({ eqLowDb: 0, eqMidDb: 0, eqHighDb: 0, reverbMix: 0 })
-                      }
-                      className="text-[11px] text-blue-600 underline font-semibold"
-                    >
-                      Reset
-                    </button>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] font-semibold mb-0.5">
-                      <span>{isEn ? 'Warmth / Bass (120Hz)' : 'Chaleur / Graves (120Hz)'}</span>
-                      <span className="tabular-nums">{masterFx.eqLowDb > 0 ? `+${masterFx.eqLowDb}` : masterFx.eqLowDb} dB</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={-12}
-                      max={12}
-                      step={1}
-                      value={masterFx.eqLowDb}
-                      onChange={(e) =>
-                        setMasterFx((f) => ({ ...f, eqLowDb: parseInt(e.target.value, 10) }))
-                      }
-                      className="w-full accent-blue-700"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] font-semibold mb-0.5">
-                      <span>{isEn ? 'Voice Presence (1kHz)' : 'Présence Voix (1kHz)'}</span>
-                      <span className="tabular-nums">{masterFx.eqMidDb > 0 ? `+${masterFx.eqMidDb}` : masterFx.eqMidDb} dB</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={-12}
-                      max={12}
-                      step={1}
-                      value={masterFx.eqMidDb}
-                      onChange={(e) =>
-                        setMasterFx((f) => ({ ...f, eqMidDb: parseInt(e.target.value, 10) }))
-                      }
-                      className="w-full accent-blue-700"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] font-semibold mb-0.5">
-                      <span>{isEn ? 'Clarity / Treble (6.5kHz)' : 'Clarté / Aigus (6.5kHz)'}</span>
-                      <span className="tabular-nums">{masterFx.eqHighDb > 0 ? `+${masterFx.eqHighDb}` : masterFx.eqHighDb} dB</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={-12}
-                      max={12}
-                      step={1}
-                      value={masterFx.eqHighDb}
-                      onChange={(e) =>
-                        setMasterFx((f) => ({ ...f, eqHighDb: parseInt(e.target.value, 10) }))
-                      }
-                      className="w-full accent-blue-700"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] font-semibold mb-0.5">
-                      <span>{isEn ? 'Sanctuary Reverb' : 'Réverbération Sanctuaire'}</span>
-                      <span className="tabular-nums">{Math.round(masterFx.reverbMix * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={0.65}
-                      step={0.05}
-                      value={masterFx.reverbMix}
-                      onChange={(e) =>
-                        setMasterFx((f) => ({ ...f, reverbMix: parseFloat(e.target.value) }))
-                      }
-                      className="w-full accent-amber-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Multi-select Batch Controls */}
-                <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1.5 text-blue-900 dark:text-blue-200">
-                      <CheckSquare className="w-3.5 h-3.5" />
-                      <span>
-                        {isEn
-                          ? `Selected Clips: ${selectedClipIds.length}`
-                          : `Sélection multiple : ${selectedClipIds.length} extrait(s)`}
-                      </span>
-                    </span>
-                    {clips.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedClipIds(
-                            selectedClipIds.length === clips.length ? [] : clips.map((c) => c.id)
-                          )
-                        }
-                        className="text-[11px] font-bold text-blue-700 dark:text-blue-400 underline"
-                      >
-                        {selectedClipIds.length === clips.length
-                          ? isEn
-                            ? 'Clear'
-                            : 'Tout désélectionner'
-                          : isEn
-                            ? 'Select all'
-                            : 'Tout sélectionner'}
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                    {isEn
-                      ? 'Tip: Hold Shift + Click clips on timeline to multi-select.'
-                      : 'Astuce : Maj + Clic sur la timeline pour sélectionner plusieurs extraits.'}
-                  </p>
-                  {selectedClipIds.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => shiftSelectedBatch(-1)}
-                        className="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold"
-                      >
-                        -1s
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => shiftSelectedBatch(1)}
-                        className="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold"
-                      >
-                        +1s
-                      </button>
-                      <button
-                        type="button"
-                        onClick={duplicateSelectedBatch}
-                        className="px-2.5 py-1 rounded bg-blue-700 text-white font-bold"
-                      >
-                        {isEn ? 'Duplicate' : 'Dupliquer'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={deleteSelectedBatch}
-                        className="px-2.5 py-1 rounded bg-red-600 text-white font-bold"
-                      >
-                        {isEn ? 'Delete' : 'Supprimer'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeToolTab === 'projects' && (
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {isEn
-                      ? `Saved Audio Projects (${savedAudioProjects.length})`
-                      : `Projets Audio sauvegardés (${savedAudioProjects.length})`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleSaveEditableProject}
-                    disabled={clips.length === 0}
-                    className="px-2.5 py-1 rounded-lg bg-blue-700 disabled:opacity-40 text-white font-bold"
-                  >
-                    + {isEn ? 'Save current' : 'Sauver actuel'}
-                  </button>
-                </div>
-
-                {savedAudioProjects.length === 0 ? (
-                  <p className="text-[11px] text-slate-500 py-4 text-center">
-                    {isEn
-                      ? 'No saved audio projects yet. Save your project to resume it anytime.'
-                      : 'Aucun projet audio sauvegardé. Cliquez sur « Sauver projet » pour reprendre plus tard.'}
-                  </p>
-                ) : (
-                  savedAudioProjects.map((proj) => (
-                    <div
-                      key={proj.id}
-                      className={`p-2.5 rounded-xl border flex items-center gap-2.5 ${
-                        currentProjectId === proj.id
-                          ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-950/20'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60'
-                      }`}
-                    >
-                      {proj.thumbnailDataUrl && (
-                        <img
-                          src={proj.thumbnailDataUrl}
-                          alt={proj.title}
-                          className="w-16 h-10 rounded-lg object-cover shrink-0"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold truncate text-slate-900 dark:text-white">{proj.title}</p>
-                        <p className="text-[10px] text-slate-500 tabular-nums">
-                          {proj.durationSeconds ? `${proj.durationSeconds}s · ` : ''}
-                          {new Date(proj.updatedAt || proj.createdAt).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleLoadSavedProject(proj)}
-                          className="px-2 py-1 rounded-lg bg-blue-700 text-white font-bold"
-                        >
-                          {isEn ? 'Open' : 'Modifier'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSavedProject(proj.id)}
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Right Interactive Multi-Track Console & Draggable Timeline */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 space-y-3 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isEn ? 'Interactive Multi-Track Timeline' : 'Timeline Multipiste Interactive'}
-                </h3>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleTogglePreview}
-                  disabled={clips.length === 0}
-                  className={`px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition disabled:opacity-40 ${
-                    isPlayingPreview
-                      ? 'bg-red-600 text-white'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  }`}
-                >
-                  {isPlayingPreview ? (
-                    <>
-                      <Square className="w-3.5 h-3.5 fill-current" />
-                      <span>
-                        {isEn ? 'Stop' : 'Arrêter'} ({playheadSec.toFixed(1)}s)
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>
-                        {isEn ? 'Play Mix' : 'Écouter'} ({totalProjectDuration.toFixed(1)}s)
-                      </span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleAddTrack}
-                  className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 font-bold flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isEn ? 'Add Track' : 'Ajouter piste'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Horizontally Scrollable Zoomable Timeline Canvas */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 text-white">
-              <div style={{ width: `${timelineWidthPx + 200}px` }} className="relative">
-                {/* Clickable Time Ruler */}
-                <div className="flex border-b border-slate-800 bg-slate-900/90 sticky top-0 z-20">
-                  <div className="w-[200px] shrink-0 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-r border-slate-800 flex items-center justify-between">
-                    <span>{isEn ? 'Tracks' : 'Pistes'}</span>
-                    <span className="tabular-nums text-amber-400">{playheadSec.toFixed(2)}s</span>
-                  </div>
-                  <div
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const clickX = Math.max(0, e.clientX - rect.left);
-                      setPlayheadSec(Number((clickX / zoomPxPerSec).toFixed(2)));
-                    }}
-                    className="flex-1 relative h-7 cursor-pointer select-none"
-                    title={isEn ? 'Click anywhere to move playhead' : 'Cliquez pour placer la tête de lecture'}
-                  >
-                    {Array.from({ length: timelineSecondsSpan + 1 }).map((_, s) => (
-                      <div
-                        key={s}
-                        style={{ left: `${s * zoomPxPerSec}px` }}
-                        className="absolute top-0 bottom-0 border-l border-slate-700/70 pl-1 text-[10px] text-slate-400 tabular-nums pt-1"
-                      >
-                        {s}s
-                      </div>
-                    ))}
-                    {markers.map((mk) => (
-                      <div
-                        key={mk.id}
-                        style={{ left: `${mk.timeSec * zoomPxPerSec}px`, backgroundColor: mk.color }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPlayheadSec(mk.timeSec);
-                        }}
-                        className="absolute bottom-0 px-1.5 py-0.5 rounded-t text-[9px] font-bold text-slate-950 -translate-x-1/2 cursor-pointer"
-                        title={`${mk.label} (${mk.timeSec}s)`}
-                      >
-                        {mk.label}
-                      </div>
-                    ))}
-                    <div
-                      style={{ left: `${playheadSec * zoomPxPerSec}px` }}
-                      className="absolute top-0 bottom-0 w-0.5 bg-red-500 pointer-events-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Track Rows */}
-                {tracks.map((track, trackIdx) => {
-                  const trackClips = clips.filter((c) => c.trackId === track.id);
-                  return (
-                    <div
-                      key={track.id}
-                      onClick={() => setSelectedTrackId(track.id)}
-                      className={`flex border-b border-slate-800/80 ${
-                        selectedTrackId === track.id ? 'bg-slate-900/70' : 'bg-slate-950'
-                      }`}
-                    >
-                      {/* Fixed Left Track Control Column */}
-                      <div className="w-[200px] shrink-0 p-2.5 border-r border-slate-800 space-y-1.5">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="color"
-                            value={track.color}
-                            onChange={(e) => updateTrack(track.id, { color: e.target.value })}
-                            className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={track.name}
-                            onChange={(e) => updateTrack(track.id, { name: e.target.value })}
-                            className="bg-transparent font-bold text-[11px] text-white flex-1 min-w-0 outline-none border-b border-transparent focus:border-blue-500"
-                          />
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              moveTrackOrder(track.id, -1);
-                            }}
-                            disabled={trackIdx === 0}
-                            title="Monter la piste"
-                            className="p-0.5 text-slate-400 hover:text-white disabled:opacity-25"
-                          >
-                            <ArrowUp className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              moveTrackOrder(track.id, 1);
-                            }}
-                            disabled={trackIdx === tracks.length - 1}
-                            title="Descendre la piste"
-                            className="p-0.5 text-slate-400 hover:text-white disabled:opacity-25"
-                          >
-                            <ArrowDown className="w-3 h-3" />
-                          </button>
-                          {tracks.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeTrack(track.id);
-                              }}
-                              className="p-0.5 text-slate-400 hover:text-red-400"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateTrack(track.id, { muted: !track.muted });
-                            }}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              track.muted ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-300'
-                            }`}
-                          >
-                            {track.muted ? <VolumeX className="w-3 h-3" /> : 'M'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateTrack(track.id, { solo: !track.solo });
-                            }}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              track.solo ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                            }`}
-                          >
-                            S
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateTrack(track.id, { locked: !track.locked });
-                            }}
-                            className={`p-1 rounded ${
-                              track.locked ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'
-                            }`}
-                            title={track.locked ? 'Déverrouiller piste' : 'Verrouiller piste'}
-                          >
-                            {track.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                          </button>
-                          <input
-                            type="range"
-                            min={0}
-                            max={1.5}
-                            step={0.05}
-                            value={track.volume}
-                            onChange={(e) =>
-                              updateTrack(track.id, { volume: parseFloat(e.target.value) })
-                            }
-                            className="w-16 accent-blue-500 ml-auto"
-                          />
-                        </div>
-
-                        {trackClips.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              chainTrackSequentially(track.id);
-                            }}
-                            className="w-full py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-semibold flex items-center justify-center gap-1 text-slate-300"
-                          >
-                            <AlignLeft className="w-3 h-3" />
-                            <span>{isEn ? 'Chain' : 'Enchaîner bout à bout'}</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Draggable Track Lane */}
-                      <div className="flex-1 relative h-16 touch-pan-y">
-                        {trackClips.map((c) => {
-                          const dur = Math.max(0.05, c.trimEnd - c.trimStart) / c.playbackRate;
-                          const leftPx = c.startTimeSec * zoomPxPerSec;
-                          const widthPx = Math.max(36, dur * zoomPxPerSec);
-                          const isSelected = selectedClipIds.includes(c.id);
-                          return (
-                            <div
-                              key={c.id}
-                              onPointerDown={(e) => handleClipPointerDown(e, c, track.locked)}
-                              onPointerMove={handleClipPointerMove}
-                              onPointerUp={handleClipPointerUp}
-                              style={{
-                                left: `${leftPx}px`,
-                                width: `${widthPx}px`,
-                                backgroundColor: track.color,
-                              }}
-                              className={`absolute top-2 bottom-2 rounded-lg px-2 flex flex-col justify-center cursor-grab active:cursor-grabbing select-none touch-none transition-shadow ${
-                                isSelected
-                                  ? 'ring-2 ring-amber-400 shadow-lg brightness-110 z-10'
-                                  : 'opacity-90 hover:opacity-100'
-                              }`}
-                              title={`${c.name} (${c.startTimeSec}s → ${(c.startTimeSec + dur).toFixed(1)}s)`}
-                            >
-                              <div className="text-[11px] font-bold text-white truncate flex items-center gap-1">
-                                <span className="truncate">{c.name}</span>
-                              </div>
-                              <div className="text-[9px] text-white/80 tabular-nums">
-                                {dur.toFixed(1)}s · {c.playbackRate}x
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Global vertical playhead needle */}
-                        <div
-                          style={{ left: `${playheadSec * zoomPxPerSec}px` }}
-                          className="absolute top-0 bottom-0 w-0.5 bg-red-500 pointer-events-none z-20"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        {clips.length === 0 && (
+          <div className="p-4 text-center text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800">
+            {isEn
+              ? 'Select a Template, record with your mic, generate synth harmonies, or import sounds from the left rail.'
+              : 'Choisissez un modèle, enregistrez votre voix, générez un accord ou importez un son depuis le panneau latéral.'}
           </div>
-
-          {/* Selected Clip Detailed Inspector */}
-          {selectedClip ? (
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 space-y-3 text-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{
-                      backgroundColor:
-                        tracks.find((t) => t.id === selectedClip.trackId)?.color || '#2563eb',
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={selectedClip.name}
-                    onChange={(e) => updateClip(selectedClip.id, { name: e.target.value })}
-                    className="font-bold text-sm text-slate-900 dark:text-white bg-transparent border-b border-transparent focus:border-blue-500 outline-none truncate"
-                  />
-                  <span className="text-slate-400 tabular-nums shrink-0">
-                    ({selectedClip.buffer.duration.toFixed(1)}s brut)
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={selectedClip.trackId}
-                    onChange={(e) => updateClip(selectedClip.id, { trackId: e.target.value })}
-                    className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold"
-                  >
-                    {tracks.map((tr) => (
-                      <option key={tr.id} value={tr.id}>
-                        {tr.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => duplicateClip(selectedClip)}
-                    title={isEn ? 'Duplicate clip' : 'Dupliquer'}
-                    className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeClip(selectedClip.id)}
-                    className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <WaveformPreview
-                buffer={selectedClip.buffer}
-                trimStart={selectedClip.trimStart}
-                trimEnd={selectedClip.trimEnd}
-                color={tracks.find((t) => t.id === selectedClip.trackId)?.color || '#3b82f6'}
-              />
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    {isEn ? 'Start (s)' : 'Position début (s)'}
-                  </label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    min={0}
-                    value={selectedClip.startTimeSec}
-                    onChange={(e) =>
-                      updateClip(selectedClip.id, {
-                        startTimeSec: Math.max(0, parseFloat(e.target.value) || 0),
-                      })
-                    }
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    {isEn ? 'Trim In (s)' : 'Coupe début (s)'}
-                  </label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    min={0}
-                    max={Math.max(0, selectedClip.trimEnd - 0.1)}
-                    value={selectedClip.trimStart}
-                    onChange={(e) =>
-                      updateClip(selectedClip.id, {
-                        trimStart: Math.max(0, parseFloat(e.target.value) || 0),
-                      })
-                    }
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    {isEn ? 'Trim Out (s)' : 'Coupe fin (s)'}
-                  </label>
-                  <input
-                    type="number"
-                    step={0.1}
-                    min={selectedClip.trimStart + 0.1}
-                    max={Number(selectedClip.buffer.duration.toFixed(2))}
-                    value={selectedClip.trimEnd}
-                    onChange={(e) =>
-                      updateClip(selectedClip.id, {
-                        trimEnd: Math.min(
-                          selectedClip.buffer.duration,
-                          parseFloat(e.target.value) || selectedClip.buffer.duration
-                        ),
-                      })
-                    }
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    {isEn ? 'Fade In / Out (s)' : 'Fondu E / S (s)'}
-                  </label>
-                  <div className="grid grid-cols-2 gap-1">
-                    <input
-                      type="number"
-                      step={0.1}
-                      min={0}
-                      max={5}
-                      value={selectedClip.fadeInSec}
-                      onChange={(e) =>
-                        updateClip(selectedClip.id, {
-                          fadeInSec: Math.max(0, parseFloat(e.target.value) || 0),
-                        })
-                      }
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
-                    />
-                    <input
-                      type="number"
-                      step={0.1}
-                      min={0}
-                      max={5}
-                      value={selectedClip.fadeOutSec}
-                      onChange={(e) =>
-                        updateClip(selectedClip.id, {
-                          fadeOutSec: Math.max(0, parseFloat(e.target.value) || 0),
-                        })
-                      }
-                      className="w-full px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 tabular-nums"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    {isEn ? 'Gain' : 'Volume'} ({Math.round(selectedClip.gain * 100)}%)
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={2}
-                    step={0.05}
-                    value={selectedClip.gain}
-                    onChange={(e) => updateClip(selectedClip.id, { gain: parseFloat(e.target.value) })}
-                    className="w-full mt-2 accent-blue-700"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
-                    Pan ({selectedClip.pan === 0 ? 'C' : selectedClip.pan < 0 ? `G${Math.abs(Math.round(selectedClip.pan * 100))}` : `D${Math.round(selectedClip.pan * 100)}`})
-                  </label>
-                  <input
-                    type="range"
-                    min={-1}
-                    max={1}
-                    step={0.1}
-                    value={selectedClip.pan}
-                    onChange={(e) => updateClip(selectedClip.id, { pan: parseFloat(e.target.value) })}
-                    className="w-full mt-2 accent-amber-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    {isEn ? 'Speed:' : 'Vitesse :'}
-                  </span>
-                  {[0.75, 0.9, 1.0, 1.15, 1.3].map((rate) => (
-                    <button
-                      key={rate}
-                      type="button"
-                      onClick={() => updateClip(selectedClip.id, { playbackRate: rate })}
-                      className={`px-2 py-1 rounded-lg font-bold tabular-nums ${
-                        selectedClip.playbackRate === rate
-                          ? 'bg-blue-700 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800'
-                      }`}
-                    >
-                      {rate}x
-                    </button>
-                  ))}
-                </div>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedClip.removeSilence}
-                    onChange={(e) =>
-                      updateClip(selectedClip.id, { removeSilence: e.target.checked })
-                    }
-                    className="accent-blue-700 w-4 h-4"
-                  />
-                  <span className="font-semibold flex items-center gap-1 text-slate-700 dark:text-slate-200">
-                    <Wand2 className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{isEn ? 'Auto-trim silences' : 'Supprimer les silences'}</span>
-                  </span>
-                </label>
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 text-center rounded-2xl bg-white dark:bg-[#0c1631] border border-dashed border-slate-300 dark:border-slate-800 text-xs text-slate-500">
-              {clips.length === 0
-                ? isEn
-                  ? 'Choose an Audio Template or record/import sounds from the left panel to begin.'
-                  : 'Choisissez un Modèle Audio, enregistrez votre voix ou ajoutez des accords depuis le panneau gauche.'
-                : isEn
-                  ? 'Tap any clip on the timeline to trim, fade, speed up, or adjust volume.'
-                  : 'Touchez un extrait sur la timeline pour le découper, déplacer, ajuster les fondus ou le volume.'}
-            </div>
-          )}
-
-          {/* Export Controls */}
-          {clips.length > 0 && (
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={isRendering}
-                  onClick={() => handleMixAndExport('mp3')}
-                  className="px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold flex items-center gap-2 whitespace-nowrap"
-                >
-                  {isRendering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}
-                  <span>{isEn ? 'Mix & Export MP3' : 'Assembler & Exporter MP3'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isRendering}
-                  onClick={() => handleMixAndExport('wav')}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 disabled:opacity-60 text-white text-xs font-bold flex items-center gap-2 whitespace-nowrap"
-                >
-                  {isRendering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}
-                  <span>{isEn ? 'Mix & Export WAV' : 'Assembler & Exporter WAV'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isRendering}
-                  onClick={() => handleShareWithoutSaving('mp3')}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold flex items-center gap-2 whitespace-nowrap"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span>{isEn ? 'Share without saving' : 'Partager sans enregistrer'}</span>
-                </button>
-              </div>
-
-              {exportedUrl && (
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <audio src={exportedUrl} controls className="w-full" />
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDownloadExported}
-                      className="px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>
-                        {isEn ? 'Save to Downloads' : 'Télécharger'} (.{exportedFormat.toUpperCase()})
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveToParole}
-                      className="px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{isEn ? 'Parole Divine' : 'Dans Parole Divine'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveToVault}
-                      className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Archive className="w-3.5 h-3.5" />
-                      <span>{isEn ? 'Save to Vault' : 'Dans Mon Coffre'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleShareExported}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>{isEn ? 'Share' : 'Partager'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Direct Share Device File Without Saving */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">
-              {isEn
-                ? 'Need to share an existing audio file directly without saving it in SHALOM?'
-                : 'Partager directement un fichier audio du téléphone sans l’enregistrer dans SHALOM :'}
-            </span>
-            <label className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-              <Share2 className="w-3.5 h-3.5" />
-              <span>{isEn ? 'Share device file directly' : 'Partager un fichier du téléphone (sans enregistrer)'}</span>
-              <input
-                type="file"
-                accept="audio/*,video/*"
-                onChange={handleShareLocalFileDirect}
-                className="hidden"
-              />
-            </label>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Final Mix Preview Modal */}
+      {/* Direct Share Device File Without Saving */}
+      <div className="px-3 py-2.5 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1.5">
+          <Headphones className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>
+            {isEn
+              ? 'Share a local audio file directly without saving in SHALOM:'
+              : 'Partager directement un fichier audio du téléphone sans l’enregistrer dans SHALOM :'}
+          </span>
+        </span>
+        <label className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 cursor-pointer">
+          <Share2 className="w-3.5 h-3.5 shrink-0" />
+          <span>{isEn ? 'Share file directly' : 'Partager fichier sans enregistrer'}</span>
+          <input
+            type="file"
+            accept="audio/*,video/*"
+            onChange={handleShareLocalFileDirect}
+            className="hidden"
+          />
+        </label>
+      </div>
+    </div>
+  );
+
+  const bottomBar = (
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="flex items-center gap-3 tabular-nums font-semibold text-slate-600 dark:text-slate-300">
+        <span>
+          {isEn ? 'Playhead' : 'Curseur'} : {playheadSec.toFixed(2)}s
+        </span>
+        <span>·</span>
+        <span>
+          {isEn ? 'Duration' : 'Durée'} : {totalProjectDuration.toFixed(2)}s
+        </span>
+        <span>·</span>
+        <span>{clips.length} {isEn ? 'clip(s)' : 'extrait(s)'}</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          disabled={isRendering || clips.length === 0}
+          onClick={() => handleMixAndExport('mp3')}
+          className="min-h-[36px] px-3 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-bold flex items-center gap-1.5"
+        >
+          {isRendering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Music className="w-3.5 h-3.5" />}
+          <span>{isEn ? 'Export MP3' : 'Exporter MP3'}</span>
+        </button>
+        <button
+          type="button"
+          disabled={isRendering || clips.length === 0}
+          onClick={() => handleMixAndExport('wav')}
+          className="min-h-[36px] px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white font-bold flex items-center gap-1.5"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>{isEn ? 'Export WAV' : 'Exporter WAV'}</span>
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <StudioWorkspaceShell
+        projectTitle={projectTitle}
+        onProjectTitleChange={setProjectTitle}
+        statusLine={`${tracks.length} pistes · ${totalProjectDuration.toFixed(1)}s`}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onPreview={() => setShowPreviewModal(true)}
+        onSaveProject={handleSaveEditableProject}
+        isSavingProject={isSavingProject}
+        onOpenShalomFolder={async () => {
+          try {
+            const outcome = await chooseShalomDownloadDirectory();
+            if (outcome.folderLabel) {
+              setNotice(
+                isEn
+                  ? `DOSSIER SHALOM linked: ${outcome.folderLabel}`
+                  : `Dossier SHALOM lié : ${outcome.folderLabel}`
+              );
+            }
+            if (outcome.requiresVirtualExplorer) {
+              setShowShalomFolderModal(true);
+            }
+          } catch {
+            setShowShalomFolderModal(true);
+          }
+        }}
+        onShare={() => handleShareWithoutSaving('mp3')}
+        onPrimaryExport={() => handleMixAndExport('mp3')}
+        primaryExportLabel="MP3"
+        isExporting={isRendering}
+        toolItems={toolItems}
+        activeToolId={activeToolTab}
+        onSelectTool={(id) => setActiveToolTab(id as AudioToolTab | null)}
+        toolDrawerContent={renderToolDrawerContent()}
+        selectionToolbar={selectionToolbar}
+        centerStage={centerStage}
+        bottomBar={bottomBar}
+        inspectorTitle={isEn ? 'Clip Settings' : 'Réglages extrait'}
+        inspectorContent={renderInspectorContent()}
+        isInspectorOpen={isInspectorOpen}
+        onToggleInspector={() => setIsInspectorOpen((v) => !v)}
+      />
+
+      {/* Final Mix Preview & Export Modal */}
       <Modal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}
-        title={isEn ? 'Audio Studio Preview' : 'Aperçu final de votre création audio'}
+        title={isEn ? 'Audio Studio Preview & Export' : 'Aperçu & Export Studio Audio'}
         subtitle={`${projectTitle} · ${tracks.length} piste(s) · ${totalProjectDuration.toFixed(1)}s`}
         maxWidth="lg"
       >
@@ -3468,14 +4077,20 @@ export const AudioStudioModule: React.FC = () => {
               <div className="p-2 rounded-lg bg-slate-900">EQ Graves: {masterFx.eqLowDb}dB</div>
               <div className="p-2 rounded-lg bg-slate-900">EQ Voix: {masterFx.eqMidDb}dB</div>
               <div className="p-2 rounded-lg bg-slate-900">EQ Aigus: {masterFx.eqHighDb}dB</div>
-              <div className="p-2 rounded-lg bg-slate-900">Réverb: {Math.round(masterFx.reverbMix * 100)}%</div>
+              <div className="p-2 rounded-lg bg-slate-900">
+                Réverb: {Math.round(masterFx.reverbMix * 100)}%
+              </div>
             </div>
             <button
               type="button"
               onClick={handleTogglePreview}
               className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
             >
-              {isPlayingPreview ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+              {isPlayingPreview ? (
+                <Square className="w-4 h-4 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 fill-current" />
+              )}
               <span>
                 {isPlayingPreview
                   ? isEn
@@ -3487,8 +4102,58 @@ export const AudioStudioModule: React.FC = () => {
               </span>
             </button>
           </div>
-          {exportedUrl && <audio src={exportedUrl} controls className="w-full" />}
-          <div className="flex justify-end">
+
+          {exportedUrl && (
+            <div className="space-y-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <audio src={exportedUrl} controls className="w-full" />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadExported}
+                  className="px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 text-white font-bold flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>
+                    {isEn ? 'Save to device' : 'Télécharger'} (.{exportedFormat.toUpperCase()})
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveToParole}
+                  className="px-3.5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isEn ? 'Parole Divine' : 'Dans Parole Divine'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveToVault}
+                  className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1.5"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  <span>{isEn ? 'Save to Vault' : 'Dans Mon Coffre'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareExported}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>{isEn ? 'Share' : 'Partager'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center">
+            <button
+              type="button"
+              onClick={() => setShowShalomFolderModal(true)}
+              className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold flex items-center gap-1.5"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+              <span>DOSSIER SHALOM</span>
+            </button>
             <button
               type="button"
               onClick={() => setShowPreviewModal(false)}
@@ -3501,11 +4166,59 @@ export const AudioStudioModule: React.FC = () => {
         </div>
       </Modal>
 
+      <ShalomFolderExplorerModal
+        isOpen={showShalomFolderModal}
+        onClose={() => setShowShalomFolderModal(false)}
+      />
+
+      <TemplatePreviewModal
+        template={
+          previewingTemplate
+            ? ({
+                id: previewingTemplate.id,
+                title: isEn ? previewingTemplate.titleEn : previewingTemplate.titleFr,
+                category: previewingTemplate.category,
+                description: isEn ? previewingTemplate.descEn : previewingTemplate.descFr,
+                kind: 'audio',
+                badgeColor: previewingTemplate.badgeColor,
+                tracks: previewingTemplate.tracks,
+                synthAdditions: previewingTemplate.synthAdditions,
+                markers: previewingTemplate.markers,
+                scriptText: isEn ? previewingTemplate.scriptEn : previewingTemplate.scriptFr,
+                sourceLabel:
+                  previewingTemplate.source === 'local'
+                    ? isEn
+                      ? 'Built-in SHALOM'
+                      : 'Modèle SHALOM'
+                    : isEn
+                      ? 'Online Catalog'
+                      : 'Catalogue en ligne',
+                isSavedOffline: customTemplates.some(
+                  (t) => t.id === previewingTemplate.id && t.studioType === 'audio'
+                ),
+                isSavingOffline: savingResourceId === previewingTemplate.id,
+                rawTemplate: previewingTemplate,
+              } satisfies PreviewModalTemplateData)
+            : null
+        }
+        isEn={isEn}
+        onClose={() => setPreviewingTemplate(null)}
+        onUseTemplate={(tplModal) => {
+          const raw = tplModal.rawTemplate as AudioTemplateDef;
+          setPreviewingTemplate(null);
+          handleApplyTemplate(raw);
+        }}
+        onSaveToShalom={(tplModal) => {
+          const raw = tplModal.rawTemplate as AudioTemplateDef;
+          handleSaveTemplateToShalom(raw);
+        }}
+      />
+
       <SocialShareModal
         isOpen={!!sharePayload}
         onClose={() => setSharePayload(null)}
         payload={sharePayload}
       />
-    </div>
+    </>
   );
 };

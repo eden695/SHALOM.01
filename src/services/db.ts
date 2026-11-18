@@ -19,6 +19,7 @@ import {
   PersonalProgram,
   ShareHistoryItem,
   StudioDraftItem,
+  SavedStudioTemplate,
 } from '../types';
 
 const DB_NAME = 'shalom_db';
@@ -294,6 +295,10 @@ class ShalomDB {
     });
   }
 
+  async deleteMediaBlob(id: string): Promise<boolean> {
+    return this.deleteItem(STORES.MEDIA_BLOBS, id);
+  }
+
   async getStorageEstimate(): Promise<{
     usageMB: number;
     quotaMB: number;
@@ -340,6 +345,7 @@ class ShalomDB {
       habitLogs,
       programs,
       shareHistory,
+      customTemplates,
       blobs,
     ] = await Promise.all([
       this.getAll<RecordedParole>(STORES.RECORDINGS),
@@ -356,6 +362,7 @@ class ShalomDB {
       this.getAll<SpiritualHabitLog>(STORES.HABIT_LOGS),
       this.getAll<PersonalProgram>(STORES.PERSONAL_PROGRAMS),
       this.getAll<ShareHistoryItem>(STORES.SHARE_HISTORY),
+      this.getAll<SavedStudioTemplate>(STORES.CUSTOM_TEMPLATES),
       this.getAll<{ id: string }>(STORES.MEDIA_BLOBS),
     ]);
     const activeKeys = new Set<string>();
@@ -402,6 +409,9 @@ class ShalomDB {
     });
     shareHistory.forEach((s) => {
       if (s.mediaBlobKey) activeKeys.add(s.mediaBlobKey);
+    });
+    customTemplates.forEach((ct) => {
+      ct.assetKeys?.forEach((k) => activeKeys.add(k));
     });
 
     const orphanIds = blobs.map((b) => b.id).filter((id) => !activeKeys.has(id));

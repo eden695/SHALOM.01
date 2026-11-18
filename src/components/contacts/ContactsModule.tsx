@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Users,
   Plus,
@@ -6,7 +6,6 @@ import {
   Phone,
   Mail,
   Download,
-  Upload,
   Trash2,
   Edit2,
   MessageSquare,
@@ -15,15 +14,14 @@ import {
   Send,
   MapPin,
   Info,
-  Smartphone,
+  Upload,
 } from 'lucide-react';
 import { dbService, STORES } from '../../services/db';
-import { importContactsFromVcfOrCsv } from '../../services/phoneContacts';
 import { useShalomDB } from '../../hooks/useShalomDB';
 import { Contact, ContactCategory } from '../../types';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { DeviceContactImportModal } from './DeviceContactImportModal';
+import { importContactsFromVcfOrCsv } from '../../services/phoneContacts';
 
 interface ContactsModuleProps {
   onStartCampaignWithContacts?: (contacts: Contact[]) => void;
@@ -61,9 +59,15 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isExportConfirmOpen, setIsExportConfirmOpen] = useState(false);
-  const [isDeviceImportOpen, setIsDeviceImportOpen] = useState(false);
 
-  const vcfImportRef = useRef<HTMLInputElement | null>(null);
+  const handleImportVcfFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const res = await importContactsFromVcfOrCsv(file, contacts);
+    setStatusMessage(res.message);
+    reloadData();
+  };
 
   const CATEGORIES: { id: ContactCategory; label: string }[] = [
     { id: 'famille', label: 'Famille' },
@@ -198,22 +202,6 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
     setStatusMessage(`${contacts.length} contact(s) exporté(s) au format CSV.`);
   };
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const { contacts: importedContacts, addedCount } = await importContactsFromVcfOrCsv(file, contacts);
-    if (importedContacts.length > 0) {
-      setStatusMessage(
-        `${addedCount} nouveau(x) contact(s) importé(s) (${importedContacts.length} traité(s)).`
-      );
-      setIsModalOpen(false);
-      reloadData();
-    } else {
-      setStatusMessage('Aucun contact valide trouvé dans ce fichier.');
-    }
-    e.target.value = '';
-  };
-
   const handleLaunchCampaign = () => {
     const targetContacts =
       selectedContactIds.length > 0
@@ -239,14 +227,16 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setIsDeviceImportOpen(true)}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
-          >
-            <Smartphone className="w-4 h-4" />
-            <span>Ajouter depuis mes contacts</span>
-          </button>
+          <label className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+            <Upload className="w-3.5 h-3.5" />
+            <span>Importer (.vcf / CSV)</span>
+            <input
+              type="file"
+              accept=".vcf,.csv,text/vcard,text/x-vcard"
+              onChange={handleImportVcfFile}
+              className="hidden"
+            />
+          </label>
 
           {contacts.length > 0 && (
             <>
@@ -271,14 +261,6 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
           )}
         </div>
       </div>
-
-      <input
-        ref={vcfImportRef}
-        type="file"
-        accept=".csv,.vcf,text/vcard"
-        onChange={handleImportFile}
-        className="hidden"
-      />
 
       {statusMessage && (
         <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 text-xs text-blue-900 dark:text-blue-200 flex items-center justify-between gap-3">
@@ -488,14 +470,16 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
             </p>
             {contacts.length === 0 && (
               <div className="flex flex-wrap items-center justify-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsDeviceImportOpen(true)}
-                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 shadow-sm transition"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  <span>Ajouter depuis mes contacts</span>
-                </button>
+                <label className="min-h-[44px] px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-semibold inline-flex items-center gap-2 cursor-pointer transition">
+                  <Upload className="w-4 h-4" />
+                  <span>Importer un fichier .vcf</span>
+                  <input
+                    type="file"
+                    accept=".vcf,.csv,text/vcard,text/x-vcard"
+                    onChange={handleImportVcfFile}
+                    className="hidden"
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={handleOpenAdd}
@@ -597,19 +581,6 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
             />
           </div>
 
-          {!editingContact && (
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => vcfImportRef.current?.click()}
-                className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Ou importer un fichier .vcf / CSV</span>
-              </button>
-            </div>
-          )}
-
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
@@ -656,16 +627,6 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
         isDestructive
         onConfirm={handleConfirmBulkDelete}
         onCancel={() => setIsBulkDeleteOpen(false)}
-      />
-
-      <DeviceContactImportModal
-        isOpen={isDeviceImportOpen}
-        onClose={() => setIsDeviceImportOpen(false)}
-        existingContacts={contacts}
-        onImported={(_imported, summaryMessage) => {
-          setStatusMessage(summaryMessage);
-          reloadData();
-        }}
       />
     </div>
   );

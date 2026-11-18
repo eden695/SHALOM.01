@@ -1,21 +1,6 @@
-// Real Android Multi-Contact Import Helper for SHALOM
-// Priority:
-//   1) Native Android JS bridge (window.ShalomAndroidContacts)
-//   2) Web Contact Picker API (navigator.contacts.select with multi-select + getProperties detection)
-//   3) Multi-contact Android .vcf / .csv file import via importContactsFromVcfOrCsv
+// VCF / CSV File Import & Phone Normalization Helpers for SHALOM Contacts
 import { dbService, STORES } from './db';
 import { Contact } from '../types';
-
-export type ContactImportErrorCode =
-  | 'SUCCESS'
-  | 'CANCELLED'
-  | 'NO_CONTACTS'
-  | 'PERMISSION_DENIED'
-  | 'PICKER_UNAVAILABLE'
-  | 'DATA_ERROR'
-  | 'DUPLICATE_ONLY'
-  | 'SAVE_FAILED'
-  | 'UNSUPPORTED_ANDROID';
 
 export interface RawPickedDeviceContact {
   externalId?: string;
@@ -27,89 +12,16 @@ export interface RawPickedDeviceContact {
   photoDataUrl?: string;
 }
 
-export interface DeviceContactImportResult {
-  code: ContactImportErrorCode;
-  status: 'success' | 'cancelled' | 'unsupported' | 'insecure_context' | 'iframe_blocked' | 'error';
-  sourceUsed: 'android-native' | 'web-picker' | 'vcf-file' | 'none';
-  selectedCount: number;
-  contacts: Contact[];
-  addedCount: number;
-  duplicateCount: number;
-  skippedNoPhone: string[];
-  message: string;
-}
-
-export interface PickContactsResult {
-  status: 'success' | 'cancelled' | 'unsupported' | 'insecure_context' | 'iframe_blocked' | 'error';
-  contacts: Contact[];
-  addedCount: number;
-  duplicateCount?: number;
-  message?: string;
-}
-
-export interface ShalomAndroidContactsBridge {
-  isAvailable?: () => boolean;
-  supportsMultiSelect?: () => boolean;
-  pickMultipleContacts?: (callbackName: string) => void;
-  getCapabilityInfo?: () => string;
-}
-
-declare global {
-  interface Window {
-    ShalomAndroidContacts?: ShalomAndroidContactsBridge;
-    __shalomOnAndroidContactsResult?: (rawJson: string) => void;
-    __shalomOnAndroidContactsError?: (errorCode: string, detail?: string) => void;
-  }
-}
-
 export const normalizePhone = (phone: string): string => {
   const cleaned = (phone || '').replace(/[^0-9+]/g, '');
   return cleaned.startsWith('00') ? `+${cleaned.slice(2)}` : cleaned;
 };
 
-export function isHttpsOrLocalhost(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.isSecureContext ||
-    window.location.protocol === 'https:' ||
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1'
-  );
-}
-
-export function isAndroidNativeBridgeAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-  const bridge = window.ShalomAndroidContacts;
-  if (!bridge || typeof bridge.pickMultipleContacts !== 'function') return false;
-  if (typeof bridge.isAvailable === 'function') {
-    try {
-      return Boolean(bridge.isAvailable());
-    } catch {
-      return true;
-    }
-  }
-  return true;
-}
-
-export function isWebContactPickerSupported(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const nav = navigator as unknown as {
-    contacts?: { select?: unknown };
-  };
-  return Boolean(nav.contacts && typeof nav.contacts.select === 'function');
-}
-
-export function isNativeContactPickerSupported(): boolean {
-  return isAndroidNativeBridgeAvailable() || isWebContactPickerSupported();
-}
-
-export function isRunningInsideAndroidWebView(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  return /Android/i.test(ua) && (/; wv\)/i.test(ua) || /Version\/\d+/i.test(ua));
-}
-
-function splitFullName(fullName: string, given?: string, family?: string): { firstName: string; lastName: string } {
+function splitFullName(
+  fullName: string,
+  given?: string,
+  family?: string
+): { firstName: string; lastName: string } {
   const cleanFirst = (given || '').trim();
   const cleanLast = (family || '').trim();
   if (cleanFirst || cleanLast) {
@@ -124,18 +36,6 @@ function splitFullName(fullName: string, given?: string, family?: string): { fir
     firstName: parts[0] || 'Contact',
     lastName: parts.slice(1).join(' '),
   };
-}
-
-async function blobToSmallDataUrl(blob: Blob): Promise<string | undefined> {
-  if (!blob || blob.size === 0 || blob.size > 400_000) return undefined;
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve(typeof reader.result === 'string' ? reader.result : undefined);
-    };
-    reader.onerror = () => resolve(undefined);
-    reader.readAsDataURL(blob);
-  });
 }
 
 function buildDedupeMaps(existingContacts: Contact[]) {
@@ -157,22 +57,23 @@ function buildDedupeMaps(existingContacts: Contact[]) {
   return { byPhone, byExternalId };
 }
 
-export async function processAndSavePickedContacts(
+async function saveParsedContacts(
   rawList: RawPickedDeviceContact[],
-  existingContacts: Contact[],
-  sourceUsed: 'android-native' | 'web-picker' | 'vcf-file'
-): Promise<DeviceContactImportResult> {
+  existingContacts: Contact[]
+): Promise<{
+  contacts: Contact[];
+  addedCount: number;
+  duplicateCount: number;
+  skippedNoPhone: string[];
+  message: string;
+}> {
   if (!Array.isArray(rawList) || rawList.length === 0) {
     return {
-      code: 'CANCELLED',
-      status: 'cancelled',
-      sourceUsed,
-      selectedCount: 0,
       contacts: [],
       addedCount: 0,
       duplicateCount: 0,
       skippedNoPhone: [],
-      message: 'Aucun contact sélectionné.',
+      message: 'Aucun contact trouvé dans ce fichier.',
     };
   }
 
@@ -225,7 +126,7 @@ export async function processAndSavePickedContacts(
     const cleanEmail = (raw.emails || []).map((e) => (e || '').trim()).find(Boolean) || undefined;
 
     const newContact: Contact = {
-      id: `c_dev_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 5)}`,
+      id: `c_imp_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 5)}`,
       firstName,
       lastName,
       phone: primaryPhone,
@@ -237,388 +138,29 @@ export async function processAndSavePickedContacts(
       createdAt: new Date().toISOString(),
     };
 
-    try {
-      const saved = await dbService.saveVerified(STORES.CONTACTS, newContact);
-      byPhone.set(normalizePhone(saved.phone), saved);
-      extraPhones.forEach((ep) => byPhone.set(normalizePhone(ep), saved));
-      if (extId) byExternalId.set(extId, saved);
-      importedContacts.push(saved);
-      addedCount++;
-    } catch (err) {
-      return {
-        code: 'SAVE_FAILED',
-        status: 'error',
-        sourceUsed,
-        selectedCount: rawList.length,
-        contacts: importedContacts,
-        addedCount,
-        duplicateCount,
-        skippedNoPhone,
-        message:
-          err instanceof Error
-            ? `Échec d’enregistrement local après ${addedCount} contact(s) : ${err.message}`
-            : 'Échec de sauvegarde dans le stockage local SHALOM.',
-      };
-    }
-  }
-
-  if (addedCount === 0 && duplicateCount > 0 && skippedNoPhone.length === 0) {
-    return {
-      code: 'DUPLICATE_ONLY',
-      status: 'success',
-      sourceUsed,
-      selectedCount: rawList.length,
-      contacts: importedContacts,
-      addedCount: 0,
-      duplicateCount,
-      skippedNoPhone,
-      message: `Tous les contacts sélectionnés (${duplicateCount}) figurent déjà dans votre répertoire SHALOM.`,
-    };
-  }
-
-  if (addedCount === 0 && duplicateCount === 0 && skippedNoPhone.length > 0) {
-    return {
-      code: 'NO_CONTACTS',
-      status: 'error',
-      sourceUsed,
-      selectedCount: rawList.length,
-      contacts: [],
-      addedCount: 0,
-      duplicateCount: 0,
-      skippedNoPhone,
-      message: `${skippedNoPhone.length} contact(s) sélectionné(s) ne possède(nt) aucun numéro de téléphone (${skippedNoPhone.slice(0, 3).join(', ')}).`,
-    };
+    const saved = await dbService.saveVerified(STORES.CONTACTS, newContact);
+    byPhone.set(normalizePhone(saved.phone), saved);
+    extraPhones.forEach((ep) => byPhone.set(normalizePhone(ep), saved));
+    if (extId) byExternalId.set(extId, saved);
+    importedContacts.push(saved);
+    addedCount++;
   }
 
   const parts: string[] = [];
-  parts.push(`${rawList.length} contact(s) sélectionné(s)`);
-  if (addedCount > 0) parts.push(`${addedCount} importé(s) et enregistré(s)`);
+  if (addedCount > 0) parts.push(`${addedCount} contact(s) importé(s)`);
   if (duplicateCount > 0) parts.push(`${duplicateCount} doublon(s) ignoré(s)`);
-  if (skippedNoPhone.length > 0) {
-    parts.push(`${skippedNoPhone.length} ignoré(s) sans numéro (${skippedNoPhone.slice(0, 2).join(', ')})`);
-  }
+  if (skippedNoPhone.length > 0) parts.push(`${skippedNoPhone.length} sans numéro ignoré(s)`);
 
   return {
-    code: 'SUCCESS',
-    status: 'success',
-    sourceUsed,
-    selectedCount: rawList.length,
     contacts: importedContacts,
     addedCount,
     duplicateCount,
     skippedNoPhone,
-    message: parts.join(' · ') + '.',
-  };
-}
-
-function openAndroidBridgePicker(): Promise<RawPickedDeviceContact[]> {
-  return new Promise((resolve, reject) => {
-    const bridge = window.ShalomAndroidContacts;
-    if (!bridge || typeof bridge.pickMultipleContacts !== 'function') {
-      reject({ code: 'PICKER_UNAVAILABLE', message: 'Pont natif Android absent.' });
-      return;
-    }
-
-    let settled = false;
-    const timeout = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      delete window.__shalomOnAndroidContactsResult;
-      delete window.__shalomOnAndroidContactsError;
-      reject({
-        code: 'PICKER_UNAVAILABLE',
-        message: 'Le sélecteur Android n’a pas répondu à temps.',
-      });
-    }, 120_000);
-
-    window.__shalomOnAndroidContactsResult = (rawJson: string) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      delete window.__shalomOnAndroidContactsResult;
-      delete window.__shalomOnAndroidContactsError;
-      try {
-        const parsed = JSON.parse(rawJson || '[]');
-        if (!Array.isArray(parsed)) {
-          reject({ code: 'DATA_ERROR', message: 'Réponse JSON du pont Android invalide.' });
-          return;
-        }
-        resolve(parsed as RawPickedDeviceContact[]);
-      } catch {
-        reject({ code: 'DATA_ERROR', message: 'Données de contacts Android corrompues.' });
-      }
-    };
-
-    window.__shalomOnAndroidContactsError = (errorCode: string, detail?: string) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      delete window.__shalomOnAndroidContactsResult;
-      delete window.__shalomOnAndroidContactsError;
-      reject({
-        code: errorCode || 'DATA_ERROR',
-        message: detail || 'Erreur du sélecteur Android.',
-      });
-    };
-
-    try {
-      bridge.pickMultipleContacts('__shalomOnAndroidContactsResult');
-    } catch (err) {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timeout);
-        delete window.__shalomOnAndroidContactsResult;
-        delete window.__shalomOnAndroidContactsError;
-        reject({
-          code: 'PICKER_UNAVAILABLE',
-          message: err instanceof Error ? err.message : 'Erreur d’appel du pont Android.',
-        });
-      }
-    }
-  });
-}
-
-export async function importDeviceContactsWithReport(
-  existingContacts: Contact[],
-  options?: { multiple?: boolean }
-): Promise<DeviceContactImportResult> {
-  // 1) Priority 1: Native Android JS Bridge (inside compiled APK with ShalomContactsBridge)
-  if (isAndroidNativeBridgeAvailable()) {
-    try {
-      const pickedRaw = await openAndroidBridgePicker();
-      return await processAndSavePickedContacts(pickedRaw, existingContacts, 'android-native');
-    } catch (err: unknown) {
-      const eObj = (err || {}) as { code?: string; message?: string };
-      const code = (eObj.code as ContactImportErrorCode) || 'DATA_ERROR';
-      if (code === 'CANCELLED') {
-        return {
-          code: 'CANCELLED',
-          status: 'cancelled',
-          sourceUsed: 'android-native',
-          selectedCount: 0,
-          contacts: [],
-          addedCount: 0,
-          duplicateCount: 0,
-          skippedNoPhone: [],
-          message: 'Sélection annulée dans le répertoire Android.',
-        };
-      }
-      if (code === 'PERMISSION_DENIED') {
-        return {
-          code: 'PERMISSION_DENIED',
-          status: 'error',
-          sourceUsed: 'android-native',
-          selectedCount: 0,
-          contacts: [],
-          addedCount: 0,
-          duplicateCount: 0,
-          skippedNoPhone: [],
-          message:
-            'Autorisation d’accès aux contacts refusée sur Android. Accordez l’accès ou utilisez l’importation multi-contacts .vcf.',
-        };
-      }
-      return {
-        code,
-        status: 'error',
-        sourceUsed: 'android-native',
-        selectedCount: 0,
-        contacts: [],
-        addedCount: 0,
-        duplicateCount: 0,
-        skippedNoPhone: [],
-        message: eObj.message || 'Impossible de lire les contacts depuis le pont Android.',
-      };
-    }
-  }
-
-  // 2) Priority 2: Web Contact Picker API (Chrome Android 80+, Edge, TWA)
-  if (!isHttpsOrLocalhost()) {
-    return {
-      code: 'UNSUPPORTED_ANDROID',
-      status: 'insecure_context',
-      sourceUsed: 'none',
-      selectedCount: 0,
-      contacts: [],
-      addedCount: 0,
-      duplicateCount: 0,
-      skippedNoPhone: [],
-      message:
-        'Le sélecteur natif Web exige une origine sécurisée HTTPS. Utilisez l’importation de fichier contacts (.vcf) depuis votre téléphone.',
-    };
-  }
-
-  const nav = navigator as unknown as {
-    contacts?: {
-      getProperties?: () => Promise<string[]>;
-      select: (
-        props: string[],
-        opts: { multiple: boolean }
-      ) => Promise<
-        Array<{
-          name?: string[];
-          tel?: string[];
-          email?: string[];
-          icon?: Blob[];
-        }>
-      >;
-    };
-  };
-
-  if (!nav.contacts || typeof nav.contacts.select !== 'function') {
-    const inWv = isRunningInsideAndroidWebView();
-    return {
-      code: inWv ? 'UNSUPPORTED_ANDROID' : 'PICKER_UNAVAILABLE',
-      status: 'unsupported',
-      sourceUsed: 'none',
-      selectedCount: 0,
-      contacts: [],
-      addedCount: 0,
-      duplicateCount: 0,
-      skippedNoPhone: [],
-      message: inWv
-        ? 'Cette WebView Android (Website 2 APK) n’expose pas navigator.contacts ni le pont natif ShalomAndroidContacts. Sélectionnez plusieurs contacts via « Importer un fichier .vcf » (exporté depuis l’app Contacts Android) ou intégrez le module Java natif.'
-        : 'Le sélecteur natif multi-contacts n’est pas disponible dans ce navigateur. Importez directement vos contacts via un fichier .vcf.',
-    };
-  }
-
-  try {
-    let requestedProps = ['name', 'tel', 'email'];
-    if (typeof nav.contacts.getProperties === 'function') {
-      try {
-        const supported = await nav.contacts.getProperties();
-        const candidate = ['name', 'tel', 'email', 'icon'].filter((p) => supported.includes(p));
-        if (candidate.includes('tel')) requestedProps = candidate;
-      } catch {
-        requestedProps = ['name', 'tel'];
-      }
-    }
-
-    const wantMultiple = options?.multiple ?? true;
-    let picked: Array<{ name?: string[]; tel?: string[]; email?: string[]; icon?: Blob[] }>;
-
-    try {
-      picked = await nav.contacts.select(requestedProps, { multiple: wantMultiple });
-    } catch (firstErr: unknown) {
-      const fName = firstErr instanceof DOMException ? firstErr.name : '';
-      // Fallback if multiple: true or optional property failed on older Android Chromium
-      if (fName === 'TypeError' && wantMultiple) {
-        picked = await nav.contacts.select(['name', 'tel'], { multiple: false });
-      } else {
-        throw firstErr;
-      }
-    }
-
-    if (!picked || picked.length === 0) {
-      return {
-        code: 'CANCELLED',
-        status: 'cancelled',
-        sourceUsed: 'web-picker',
-        selectedCount: 0,
-        contacts: [],
-        addedCount: 0,
-        duplicateCount: 0,
-        skippedNoPhone: [],
-        message: 'Aucun contact sélectionné.',
-      };
-    }
-
-    const rawList: RawPickedDeviceContact[] = [];
-    for (let i = 0; i < picked.length; i++) {
-      const p = picked[i];
-      let photoDataUrl: string | undefined;
-      if (p.icon && p.icon[0] instanceof Blob) {
-        photoDataUrl = await blobToSmallDataUrl(p.icon[0]);
-      }
-      rawList.push({
-        displayName: (p.name?.[0] || '').trim() || 'Contact',
-        phones: Array.isArray(p.tel) ? p.tel : [],
-        emails: Array.isArray(p.email) ? p.email : [],
-        photoDataUrl,
-      });
-    }
-
-    return await processAndSavePickedContacts(rawList, existingContacts, 'web-picker');
-  } catch (err: unknown) {
-    const errName = err instanceof DOMException ? err.name : '';
-    const errMsg = err instanceof Error ? err.message : '';
-
-    if (
-      errName === 'SecurityError' ||
-      errMsg.toLowerCase().includes('top-level') ||
-      errMsg.toLowerCase().includes('iframe')
-    ) {
-      return {
-        code: 'PICKER_UNAVAILABLE',
-        status: 'iframe_blocked',
-        sourceUsed: 'web-picker',
-        selectedCount: 0,
-        contacts: [],
-        addedCount: 0,
-        duplicateCount: 0,
-        skippedNoPhone: [],
-        message:
-          'L’accès direct au répertoire est bloqué dans cet aperçu intégré. Ouvrez l’app en HTTPS plein écran ou importez un fichier .vcf multi-contacts.',
-      };
-    }
-    if (errName === 'NotAllowedError') {
-      return {
-        code: 'PERMISSION_DENIED',
-        status: 'error',
-        sourceUsed: 'web-picker',
-        selectedCount: 0,
-        contacts: [],
-        addedCount: 0,
-        duplicateCount: 0,
-        skippedNoPhone: [],
-        message: 'Permission d’accès au répertoire refusée.',
-      };
-    }
-    if (errName === 'AbortError') {
-      return {
-        code: 'CANCELLED',
-        status: 'cancelled',
-        sourceUsed: 'web-picker',
-        selectedCount: 0,
-        contacts: [],
-        addedCount: 0,
-        duplicateCount: 0,
-        skippedNoPhone: [],
-        message: 'Sélection annulée par l’utilisateur.',
-      };
-    }
-    return {
-      code: 'DATA_ERROR',
-      status: 'error',
-      sourceUsed: 'web-picker',
-      selectedCount: 0,
-      contacts: [],
-      addedCount: 0,
-      duplicateCount: 0,
-      skippedNoPhone: [],
-      message: errMsg
-        ? `Erreur lors de la lecture du répertoire : ${errMsg}`
-        : 'Impossible de lire les contacts sélectionnés.',
-    };
-  }
-}
-
-// Backward-compatible wrapper
-export async function pickContactsFromDevice(
-  existingContacts: Contact[],
-  options?: { multiple?: boolean }
-): Promise<PickContactsResult> {
-  const res = await importDeviceContactsWithReport(existingContacts, options);
-  return {
-    status: res.status,
-    contacts: res.contacts,
-    addedCount: res.addedCount,
-    duplicateCount: res.duplicateCount,
-    message: res.message,
+    message: parts.length > 0 ? `${parts.join(' · ')}.` : 'Aucun contact valide trouvé.',
   };
 }
 
 function unfoldVcardText(rawText: string): string {
-  // RFC 2425 / 6350 folded lines start with a single space or tab after CRLF/LF
   return rawText.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
 }
 
@@ -631,7 +173,7 @@ function decodeVcardValue(rawVal: string, paramsPart: string): string {
       });
       clean = decodeURIComponent(hexClean);
     } catch {
-      // keep clean raw fallback
+      // keep raw fallback
     }
   }
   return clean;
@@ -709,12 +251,5 @@ export async function importContactsFromVcfOrCsv(
     }
   }
 
-  const res = await processAndSavePickedContacts(rawList, existingContacts, 'vcf-file');
-  return {
-    contacts: res.contacts,
-    addedCount: res.addedCount,
-    duplicateCount: res.duplicateCount,
-    skippedNoPhone: res.skippedNoPhone,
-    message: res.message,
-  };
+  return saveParsedContacts(rawList, existingContacts);
 }

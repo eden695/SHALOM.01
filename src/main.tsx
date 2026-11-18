@@ -1,10 +1,14 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { ShalomErrorPage } from './components/common/ShalomErrorPage.tsx';
+import { classifyAppError } from './services/studios/canvasSafety.ts';
 import './index.css';
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  errorMessage?: string;
+  errorMode?: 'offline' | 'network' | 'runtime';
 }
 
 class AppErrorBoundary extends React.Component<
@@ -13,28 +17,27 @@ class AppErrorBoundary extends React.Component<
 > {
   state: ErrorBoundaryState = { hasError: false };
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    const mode = classifyAppError(error);
+    const msg = error instanceof Error ? error.message : String(error || '');
+    return {
+      hasError: true,
+      errorMode: mode,
+      errorMessage: msg ? msg.slice(0, 180) : undefined,
+    };
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#f7f8fa] dark:bg-[#060d1d] text-slate-900 dark:text-white p-6 text-center">
-          <div className="max-w-sm space-y-4">
-            <h1 className="text-xl font-bold font-display">SHALOM</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Une erreur d’affichage s’est produite. Rechargez la page pour restaurer votre espace.
-            </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold"
-            >
-              Recharger SHALOM
-            </button>
-          </div>
-        </div>
+        <ShalomErrorPage
+          mode={this.state.errorMode || 'runtime'}
+          technicalHint={this.state.errorMessage}
+          onRetry={() => {
+            this.setState({ hasError: false, errorMessage: undefined });
+            window.location.reload();
+          }}
+        />
       );
     }
     return this.props.children;

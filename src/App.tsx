@@ -170,6 +170,24 @@ function ShalomAppShell({
     }
   }, [activeTab, securityConfig, goHome]);
 
+  useEffect(() => {
+    if (loading || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const targetTab = params.get('tab');
+    const sharedFlag = params.get('shared');
+    if (targetTab === 'vault' || sharedFlag === '1') {
+      handleSelectTab('vault', 'vault');
+      params.delete('tab');
+      params.delete('shared');
+      params.delete('share-target');
+      const remaining = params.toString();
+      const nextUrl =
+        window.location.pathname + (remaining ? `?${remaining}` : '') + window.location.hash;
+      window.history.replaceState(window.history.state, '', nextUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   const [campaignContacts, setCampaignContacts] = useState<Contact[] | undefined>(undefined);
   const [campaignMessage, setCampaignMessage] = useState<string | undefined>(undefined);
 
@@ -251,8 +269,10 @@ function ShalomAppShell({
         )}
 
         <main
-          className={`flex-1 w-full mx-auto p-4 sm:p-6 pb-24 lg:pb-10 ${
-            activeTab === 'studios' ? 'max-w-7xl' : 'max-w-5xl'
+          className={`flex-1 w-full mx-auto ${
+            activeTab === 'studios'
+              ? 'max-w-none p-2 sm:p-3 lg:p-4 pb-20 lg:pb-4'
+              : 'max-w-5xl p-4 sm:p-6 pb-24 lg:pb-10'
           }`}
         >
           {activeTab === 'dashboard' && (

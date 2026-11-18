@@ -1,9 +1,9 @@
-// Auto-Draft & Editable Project Persistence for all 3 SHALOM Studios
+// Auto-Draft & Editable Project Persistence for all SHALOM Studios
 import { dbService, STORES } from './db';
 import { StudioDraftItem } from '../types';
 
 export async function saveStudioDraft(
-  studioType: 'design' | 'audio' | 'video',
+  studioType: 'design' | 'presentation' | 'audio' | 'video',
   title: string,
   projectJson: string,
   mediaAssetKeys: string[] = []
@@ -21,13 +21,15 @@ export async function saveStudioDraft(
 }
 
 export async function loadStudioDraft(
-  studioType: 'design' | 'audio' | 'video'
+  studioType: 'design' | 'presentation' | 'audio' | 'video'
 ): Promise<StudioDraftItem | null> {
   const id: StudioDraftItem['id'] = `draft_${studioType}`;
   return dbService.getById<StudioDraftItem>(STORES.STUDIO_DRAFTS, id);
 }
 
-export async function clearStudioDraft(studioType: 'design' | 'audio' | 'video'): Promise<void> {
+export async function clearStudioDraft(
+  studioType: 'design' | 'presentation' | 'audio' | 'video'
+): Promise<void> {
   const id: StudioDraftItem['id'] = `draft_${studioType}`;
   await dbService.deleteItem(STORES.STUDIO_DRAFTS, id);
 }

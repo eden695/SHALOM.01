@@ -1071,28 +1071,28 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       {subTab === 'security' && (
         <form onSubmit={handleSaveSecurityPolicy} className="max-w-3xl space-y-6">
           {/* Hero Protection Summary */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#0b1f42] via-[#102956] to-[#16366f] text-white border border-blue-900/60 shadow-md space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
                     securityConfig.isEnabled
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400'
-                      : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                      ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                      : 'bg-white/10 border-white/20 text-blue-100'
                   }`}
                 >
                   <Shield className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-base sm:text-lg font-extrabold text-white tracking-tight font-display">
                     Sécurité & Verrouillage SHALOM
                   </h2>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 flex flex-wrap items-center gap-1.5">
+                  <p className="text-xs text-blue-100 flex flex-wrap items-center gap-1.5">
                     <span
                       className={`font-bold ${
                         securityConfig.isEnabled
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-600 dark:text-slate-400'
+                          ? 'text-emerald-300'
+                          : 'text-amber-300'
                       }`}
                     >
                       {securityConfig.isEnabled ? 'Protection active' : 'Protection désactivée'}
@@ -1119,7 +1119,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <button
                     type="button"
                     onClick={onLockNow}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 text-xs font-bold flex items-center gap-1.5 transition"
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center gap-1.5 transition"
                   >
                     <Lock className="w-4 h-4" />
                     <span>Verrouiller</span>
@@ -1127,7 +1127,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <button
                     type="button"
                     onClick={handleDisableSecurity}
-                    className="min-h-[44px] px-4 py-2 rounded-xl border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-50 dark:hover:bg-red-950/30 transition"
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-300/40 text-red-100 text-xs font-bold transition"
                   >
                     Désactiver
                   </button>
@@ -1136,8 +1136,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
 
             {securityNotice && (
-              <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-xs font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0" />
+              <div className="p-3.5 rounded-2xl bg-white/10 border border-white/20 text-xs font-semibold text-white flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
                 <span>{securityNotice}</span>
               </div>
             )}
@@ -1720,13 +1720,13 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/50 space-y-2 text-xs">
               <h4 className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
                 <Info className="w-4 h-4 shrink-0" />
-                <span>Compatibilité Android & APK (WebView / Website 2 APK Builder)</span>
+                <span>Compatibilité Android & APK (PWA / WebView / Website 2 APK)</span>
               </h4>
               <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                En mode navigateur / PWA Android, les importations du Coffre utilisent le sélecteur de documents système (URI <code>content://</code> lues intégralement en mémoire puis vérifiées en IndexedDB) et les téléchargements sont transmis au gestionnaire Android vers votre dossier public <strong>Téléchargements / Downloads</strong>.
+                Les fichiers et créations exportés depuis le Coffre ou les Studios ciblent le dossier <strong>SHALOM DOWNLOAD</strong> (via File System Access sur ordinateur/PWA compatible, le gestionnaire de téléchargements navigateur, ou <code>window.ShalomAndroid.saveBase64ToDownloads</code> dans un APK Android). En PWA installée sur Android, SHALOM reçoit également les fichiers envoyés via le menu système <strong>Partager → SHALOM</strong> (<code>?tab=vault&shared=1</code>).
               </p>
               <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                Si vous empaquetez SHALOM en APK via <em>Website 2 APK Builder</em> ou une WebView Android personnalisée, activez l’accès stockage/téléchargements, le sélecteur de fichiers WebView (<code>onShowFileChooser</code>) et, en option avancée, le pont JavaScript <code>window.ShalomAndroid</code> (<code>saveBase64ToDownloads</code>, <code>shareBase64File</code>, <code>openDownloadedFile</code>) vers <code>MediaStore.Downloads</code>.
+                Pour les APK personnalisés (Android WebView / Capacitor), activez <code>onShowFileChooser</code> ainsi que les ponts optionnels <code>window.ShalomAndroid</code>, <code>window.ShalomAndroidContacts</code> (sélection multiple du répertoire) et <code>window.ShalomAndroidRecorder</code> (service d’enregistrement au premier plan et bulle flottante).
               </p>
             </div>
           </div>

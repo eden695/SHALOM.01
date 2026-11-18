@@ -9,6 +9,27 @@ export interface FinishedRecording {
   previewUrl: string;
 }
 
+export interface CapturedRecordingPhoto {
+  id: string;
+  blob: Blob;
+  previewUrl: string;
+}
+
+export interface ShalomAndroidRecorderBridge {
+  startForegroundService?: (mode: 'audio' | 'video') => boolean;
+  stopForegroundService?: () => boolean;
+  updateRecordingNotification?: (durationSec: number, isPaused: boolean) => void;
+  showFloatingBubble?: (mode: 'audio' | 'video') => boolean;
+  hideFloatingBubble?: () => boolean;
+  hasOverlayPermission?: () => boolean;
+}
+
+declare global {
+  interface Window {
+    ShalomAndroidRecorder?: ShalomAndroidRecorderBridge;
+  }
+}
+
 interface RecordingContextValue {
   recorderState: RecorderState;
   captureMethod: 'mic' | 'video' | 'import';
@@ -17,10 +38,17 @@ interface RecordingContextValue {
   setFacingMode: (f: 'user' | 'environment') => void;
   isRecordingModalOpen: boolean;
   setIsRecordingModalOpen: (open: boolean) => void;
+  isFloatingBubbleHidden: boolean;
+  setIsFloatingBubbleHidden: (hidden: boolean) => void;
   finishedRecording: FinishedRecording | null;
   setFinishedRecording: React.Dispatch<React.SetStateAction<FinishedRecording | null>>;
+  capturedPhotos: CapturedRecordingPhoto[];
+  addCapturedPhoto: (blob: Blob) => void;
+  removeCapturedPhoto: (idx: number) => void;
+  clearCapturedPhotos: () => void;
   startAudio: () => Promise<void>;
   startVideo: (videoEl: HTMLVideoElement | null, facing: 'user' | 'environment') => Promise<void>;
+  attachPreviewElement: (videoEl: HTMLVideoElement | null) => void;
   pauseOrResume: () => void;
   switchCamera: () => Promise<'user' | 'environment'>;
   capturePhotoFromVideo: () => Promise<Blob | null>;
@@ -28,6 +56,7 @@ interface RecordingContextValue {
   stopRecording: () => Promise<FinishedRecording | null>;
   cancelRecording: () => void;
   appWasBackgrounded: boolean;
+  hasNativeForegroundRecorder: boolean;
 }
 
 const DEFAULT_STATE: RecorderState = {
@@ -50,8 +79,14 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [captureMethod, setCaptureMethod] = useState<'mic' | 'video' | 'import'>('mic');
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isRecordingModalOpen, setIsRecordingModalOpen] = useState(false);
+  const [isFloatingBubbleHidden, setIsFloatingBubbleHidden] = useState(false);
   const [finishedRecording, setFinishedRecording] = useState<FinishedRecording | null>(null);
+  const [capturedPhotos, setCapturedPhotos] = useState<CapturedRecordingPhoto[]>([]);
   const [appWasBackgrounded, setAppWasBackgrounded] = useState(false);
+
+  const hasNativeForegroundRecorder =
+    typeof window !== 'undefined' &&
+    Boolean(window.ShalomAndroidRecorder?.startForegroundService);
 
   useEffect(() => {
     managerRef.current = new MediaRecordingManager((state) => {
@@ -60,10 +95,10 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => {
       managerRef.current?.cancel();
       wakeLockRef.current?.release().catch(() => {});
+      window.ShalomAndroidRecorder?.stopForegroundService?.();
     };
   }, []);
 
-  // Track app background/foreground transitions & register MediaSession while recording
   useEffect(() => {
     const handleVisibility = () => {
       if (recorderState.isRecording && document.visibilityState === 'hidden') {
@@ -74,17 +109,70 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [recorderState.isRecording]);
 
+  const addCapturedPhoto = useCallback((blob: Blob) => {
+    if (!blob || blob.size === 0) return;
+    const previewUrl = URL.createObjectURL(blob);
+    setCapturedPhotos((prev) => [
+      ...prev,
+      { id: `cphoto_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, blob, previewUrl },
+    ]);
+  }, []);
+
+  const removeCapturedPhoto = useCallback((idx: number) => {
+    setCapturedPhotos((prev) => {
+      const target = prev[idx];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }, []);
+
+  const clearCapturedPhotos = useCallback(() => {
+    setCapturedPhotos((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return [];
+    });
+  }, []);
+
+  const stopRecording = useCallback(async (): Promise<FinishedRecording | null> => {
+    if (!managerRef.current) return null;
+    const result = await managerRef.current.stop();
+    window.ShalomAndroidRecorder?.stopForegroundService?.();
+    window.ShalomAndroidRecorder?.hideFloatingBubble?.();
+    if (!result.blob || result.blob.size === 0) return null;
+    const previewUrl = URL.createObjectURL(result.blob);
+    const finished: FinishedRecording = {
+      blob: result.blob,
+      mimeType: result.mimeType,
+      duration: result.duration,
+      mediaType: recorderState.mode === 'video' ? 'video' : 'audio',
+      previewUrl,
+    };
+    setFinishedRecording(finished);
+    setIsFloatingBubbleHidden(false);
+    return finished;
+  }, [recorderState.mode]);
+
   useEffect(() => {
     if (!recorderState.isRecording) {
       setAppWasBackgrounded(false);
+      setIsFloatingBubbleHidden(false);
       if (wakeLockRef.current) {
         wakeLockRef.current.release().catch(() => {});
         wakeLockRef.current = null;
       }
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.playbackState = 'none';
+          navigator.mediaSession.setActionHandler('play', null);
+          navigator.mediaSession.setActionHandler('pause', null);
+          navigator.mediaSession.setActionHandler('stop', null);
+        } catch {
+          // ignore
+        }
+      }
       return;
     }
 
-    // Request WakeLock silently when recording so mobile devices don't kill capture abruptly
     const nav = navigator as Navigator & {
       wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> };
     };
@@ -97,7 +185,6 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .catch(() => {});
     }
 
-    // Register MediaSession metadata so Android notification tray displays SHALOM recording status
     if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -109,15 +196,35 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           album: 'Capture active',
         });
         navigator.mediaSession.playbackState = recorderState.isPaused ? 'paused' : 'playing';
+        navigator.mediaSession.setActionHandler('play', () => managerRef.current?.resume());
+        navigator.mediaSession.setActionHandler('pause', () => managerRef.current?.pause());
+        navigator.mediaSession.setActionHandler('stop', () => {
+          stopRecording().then(() => setIsRecordingModalOpen(true));
+        });
       } catch {
         // ignore if unsupported
       }
     }
-  }, [recorderState.isRecording, recorderState.isPaused, recorderState.mode]);
+  }, [recorderState.isRecording, recorderState.isPaused, recorderState.mode, stopRecording]);
+
+  useEffect(() => {
+    if (recorderState.isRecording && window.ShalomAndroidRecorder?.updateRecordingNotification) {
+      try {
+        window.ShalomAndroidRecorder.updateRecordingNotification(
+          recorderState.durationSeconds,
+          recorderState.isPaused
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }, [recorderState.isRecording, recorderState.durationSeconds, recorderState.isPaused]);
 
   const startAudio = useCallback(async () => {
     if (!managerRef.current) return;
     setCaptureMethod('mic');
+    setIsFloatingBubbleHidden(false);
+    window.ShalomAndroidRecorder?.startForegroundService?.('audio');
     await managerRef.current.startAudioRecording();
   }, []);
 
@@ -126,10 +233,16 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!managerRef.current) return;
       setCaptureMethod('video');
       setFacingMode(facing);
+      setIsFloatingBubbleHidden(false);
+      window.ShalomAndroidRecorder?.startForegroundService?.('video');
       await managerRef.current.startVideoRecording(videoEl, facing);
     },
     []
   );
+
+  const attachPreviewElement = useCallback((videoEl: HTMLVideoElement | null) => {
+    managerRef.current?.attachPreviewElement(videoEl);
+  }, []);
 
   const pauseOrResume = useCallback(() => {
     if (!managerRef.current) return;
@@ -159,24 +272,11 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return managerRef.current.acquireVideoCameraStream(facing);
   }, []);
 
-  const stopRecording = useCallback(async (): Promise<FinishedRecording | null> => {
-    if (!managerRef.current) return null;
-    const result = await managerRef.current.stop();
-    if (!result.blob || result.blob.size === 0) return null;
-    const previewUrl = URL.createObjectURL(result.blob);
-    const finished: FinishedRecording = {
-      blob: result.blob,
-      mimeType: result.mimeType,
-      duration: result.duration,
-      mediaType: recorderState.mode === 'video' ? 'video' : 'audio',
-      previewUrl,
-    };
-    setFinishedRecording(finished);
-    return finished;
-  }, [recorderState.mode]);
-
   const cancelRecording = useCallback(() => {
     managerRef.current?.cancel();
+    window.ShalomAndroidRecorder?.stopForegroundService?.();
+    window.ShalomAndroidRecorder?.hideFloatingBubble?.();
+    setIsFloatingBubbleHidden(false);
   }, []);
 
   return (
@@ -189,10 +289,17 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setFacingMode,
         isRecordingModalOpen,
         setIsRecordingModalOpen,
+        isFloatingBubbleHidden,
+        setIsFloatingBubbleHidden,
         finishedRecording,
         setFinishedRecording,
+        capturedPhotos,
+        addCapturedPhoto,
+        removeCapturedPhoto,
+        clearCapturedPhotos,
         startAudio,
         startVideo,
+        attachPreviewElement,
         pauseOrResume,
         switchCamera,
         capturePhotoFromVideo,
@@ -200,6 +307,7 @@ export const RecordingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         stopRecording,
         cancelRecording,
         appWasBackgrounded,
+        hasNativeForegroundRecorder,
       }}
     >
       {children}

@@ -1,79 +1,129 @@
 import React from 'react';
-import { Palette, Music, Film, Sparkles } from 'lucide-react';
+import { Palette, Presentation, Music, Film, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useModuleSubView } from '../../contexts/NavigationContext';
 import { CreativeStudioModule } from './CreativeStudioModule';
 import { AudioStudioModule } from './AudioStudioModule';
 import { VideoStudioModule } from './VideoStudioModule';
+import { StudioErrorBoundary, StudioTabId } from './shared/StudioErrorBoundary';
 
 export const StudiosHub: React.FC = () => {
   const { lang } = useLanguage();
   const isEn = lang === 'en';
-  const [activeStudio, setActiveStudio] = useModuleSubView<'design' | 'audio' | 'video'>(
+  const [rawActiveStudio, setActiveStudio] = useModuleSubView<StudioTabId>(
     'studios',
     'design'
   );
 
+  const activeStudio: StudioTabId =
+    rawActiveStudio === 'presentation' ||
+    rawActiveStudio === 'video' ||
+    rawActiveStudio === 'audio'
+      ? rawActiveStudio
+      : 'design';
+
+  const activeStudioLabel =
+    activeStudio === 'presentation'
+      ? isEn
+        ? 'Presentation Studio'
+        : 'Studio Présentation'
+      : activeStudio === 'video'
+        ? isEn
+          ? 'Video Studio'
+          : 'Studio Vidéo'
+        : activeStudio === 'audio'
+          ? isEn
+            ? 'Audio Studio'
+            : 'Studio Audio'
+          : isEn
+            ? 'Visual Studio'
+            : 'Studio Création';
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2 font-display">
-            <Sparkles className="w-6 h-6 text-amber-500" />
-            <span>{isEn ? 'Christian Creative Studios' : 'Studios de Création Chrétienne'}</span>
+    <div className="space-y-2.5 animate-in fade-in duration-200">
+      {/* Compact Header & 4-Studio Switcher — preserves mobile/desktop viewport space */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles className="w-5 h-5 text-amber-500 shrink-0" />
+          <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-display truncate">
+            {isEn ? 'SHALOM Studios' : 'Studios SHALOM'}
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <span className="hidden xl:inline text-xs text-slate-500 dark:text-slate-400 truncate">
+            ·{' '}
             {isEn
-              ? 'Offline Graphic Design, Audio Mixing & Video Montage for faith sharing'
-              : 'Création visuelle, Studio Audio & Studio Vidéo 100% intégrés et hors-ligne'}
-          </p>
+              ? 'Design, Presentations, Video & Audio Pro Workspace'
+              : 'Création Graphique, Présentation, Montage Vidéo & Audio'}
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveStudio('design')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition ${
+            className={`min-h-[42px] sm:min-h-[38px] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition whitespace-nowrap shrink-0 ${
               activeStudio === 'design'
-                ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800/70'
             }`}
           >
-            <Palette className="w-3.5 h-3.5" />
-            <span>{isEn ? 'Visual Studio' : 'Studio Création'}</span>
+            <Palette className="w-3.5 h-3.5 shrink-0" />
+            <span>{isEn ? 'Graphic Studio' : 'Studio Création'}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveStudio('audio')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition ${
-              activeStudio === 'audio'
-                ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
+            onClick={() => setActiveStudio('presentation')}
+            className={`min-h-[42px] sm:min-h-[38px] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition whitespace-nowrap shrink-0 ${
+              activeStudio === 'presentation'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800/70'
             }`}
           >
-            <Music className="w-3.5 h-3.5" />
-            <span>{isEn ? 'Audio Studio' : 'Studio Audio'}</span>
+            <Presentation className="w-3.5 h-3.5 shrink-0" />
+            <span>{isEn ? 'Presentations' : 'Studio Présentation'}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveStudio('video')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition ${
+            className={`min-h-[42px] sm:min-h-[38px] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition whitespace-nowrap shrink-0 ${
               activeStudio === 'video'
-                ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800/70'
             }`}
           >
-            <Film className="w-3.5 h-3.5" />
+            <Film className="w-3.5 h-3.5 shrink-0" />
             <span>{isEn ? 'Video Studio' : 'Studio Vidéo'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveStudio('audio')}
+            className={`min-h-[42px] sm:min-h-[38px] px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition whitespace-nowrap shrink-0 ${
+              activeStudio === 'audio'
+                ? 'bg-blue-700 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-800/70'
+            }`}
+          >
+            <Music className="w-3.5 h-3.5 shrink-0" />
+            <span>{isEn ? 'Audio Studio' : 'Studio Audio'}</span>
           </button>
         </div>
       </div>
 
-      {activeStudio === 'design' && <CreativeStudioModule />}
-      {activeStudio === 'audio' && <AudioStudioModule />}
-      {activeStudio === 'video' && <VideoStudioModule />}
+      <StudioErrorBoundary
+        studioId={activeStudio}
+        studioLabel={activeStudioLabel}
+        isEn={isEn}
+        onSwitchStudio={setActiveStudio}
+      >
+        {activeStudio === 'design' && <CreativeStudioModule key="studio_design" mode="design" />}
+        {activeStudio === 'presentation' && (
+          <CreativeStudioModule key="studio_presentation" mode="presentation" />
+        )}
+        {activeStudio === 'video' && <VideoStudioModule key="studio_video" />}
+        {activeStudio === 'audio' && <AudioStudioModule key="studio_audio" />}
+      </StudioErrorBoundary>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Vault,
   BookOpen,
@@ -33,8 +33,11 @@ import { VaultDocument } from '../../types';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { SocialShareModal } from '../common/SocialShareModal';
+import { ShalomFolderExplorerModal } from './ShalomFolderExplorerModal';
 import { SharePayload, normalizeMediaToShareFile } from '../../services/socialShare';
 import {
+  chooseShalomDownloadDirectory,
+  consumePendingSharedFiles,
   downloadBlobToDevice,
   extractEpubReadableText,
   getExtension,
@@ -218,6 +221,16 @@ export const SpiritualVaultModule: React.FC = () => {
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [confirmDeleteDocs, setConfirmDeleteDocs] = useState<VaultDocument[] | null>(null);
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [folderExplorerOpen, setFolderExplorerOpen] = useState(false);
+  const [folderExplorerReason, setFolderExplorerReason] = useState<string | null>(null);
+
+  const fileImportInputRef = useRef<HTMLInputElement | null>(null);
+  const isSyncingSharedRef = useRef(false);
+  const vaultDocumentsRef = useRef<VaultDocument[]>(vaultDocuments);
+
+  useEffect(() => {
+    vaultDocumentsRef.current = vaultDocuments;
+  }, [vaultDocuments]);
 
   useEffect(() => {
     let activeUrl: string | null = null;
@@ -330,87 +343,167 @@ export const SpiritualVaultModule: React.FC = () => {
     return 'autre';
   };
 
-  const processImportedFileList = async (files: FileList | File[]) => {
-    const fileArray = Array.from(files);
-    if (fileArray.length === 0) return;
+  const processImportedFileList = useCallback(
+    async (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      if (fileArray.length === 0) return;
 
-    setIsImporting(true);
-    setErrorBanner(null);
-    setNotice(null);
+      setIsImporting(true);
+      setErrorBanner(null);
+      setNotice(null);
 
-    const existingNames = vaultDocuments.map((d) => d.fileName);
-    let addedCount = 0;
-    const addedNames: string[] = [];
-    const failedMessages: string[] = [];
+      const existingNames = vaultDocumentsRef.current.map((d) => d.fileName);
+      let addedCount = 0;
+      const addedNames: string[] = [];
+      const failedMessages: string[] = [];
 
-    for (let i = 0; i < fileArray.length; i++) {
-      const rawFile = fileArray[i];
-      try {
-        // 1. Immediately read bytes from Android content:// URI or file handle and verify size > 0
-        const verified = await readFileAsVerifiedBlob(rawFile);
-        const uniqueFileName = resolveUniqueFileName(verified.fileName, [
-          ...existingNames,
-          ...addedNames,
-        ]);
+      for (let i = 0; i < fileArray.length; i++) {
+        const rawFile = fileArray[i];
+        try {
+          // 1. Immediately read bytes from Android content:// URI or file handle and verify size > 0
+          const verified = await readFileAsVerifiedBlob(rawFile);
+          const uniqueFileName = resolveUniqueFileName(verified.fileName, [
+            ...existingNames,
+            ...addedNames,
+          ]);
 
-        const stamp = Date.now() + i;
-        const blobKey = `vault_blob_${stamp}_${Math.random().toString(36).slice(2, 6)}`;
+          const stamp = Date.now() + i;
+          const blobKey = `vault_blob_${stamp}_${Math.random().toString(36).slice(2, 6)}`;
 
-        // 2. Write to IndexedDB MEDIA_BLOBS
-        await dbService.saveMediaBlob(blobKey, verified.blob, verified.mimeType);
+          // 2. Write to IndexedDB MEDIA_BLOBS
+          await dbService.saveMediaBlob(blobKey, verified.blob, verified.mimeType);
 
-        // 3. Verify real persistence in IndexedDB before creating catalog entry (no fake imports)
-        const check = await dbService.verifyMediaBlob(blobKey, verified.sizeBytes);
-        if (!check.exists || check.size === 0) {
-          await dbService.deleteItem(STORES.MEDIA_BLOBS, blobKey).catch(() => {});
-          throw new Error(
-            `Le stockage local n’a pas confirmé l’enregistrement de « ${uniqueFileName} ».`
-          );
+          // 3. Verify real persistence in IndexedDB before creating catalog entry (no fake imports)
+          const check = await dbService.verifyMediaBlob(blobKey, verified.sizeBytes);
+          if (!check.exists || check.size === 0) {
+            await dbService.deleteItem(STORES.MEDIA_BLOBS, blobKey).catch(() => {});
+            throw new Error(
+              `Le stockage local n’a pas confirmé l’enregistrement de « ${uniqueFileName} ».`
+            );
+          }
+
+          const ext = getExtension(uniqueFileName);
+          const baseTitle = ext
+            ? uniqueFileName.slice(0, -(ext.length + 1))
+            : uniqueFileName;
+
+          const doc: VaultDocument = {
+            id: `vdoc_${stamp}_${i}`,
+            title: baseTitle || uniqueFileName,
+            category: inferVaultCategory(uniqueFileName, verified.mimeType),
+            fileName: uniqueFileName,
+            mimeType: verified.mimeType,
+            sizeBytes: check.size,
+            blobKey,
+            createdAt: new Date().toISOString(),
+          };
+
+          await dbService.put(STORES.VAULT_DOCUMENTS, doc);
+          addedCount++;
+          addedNames.push(uniqueFileName);
+        } catch (err) {
+          const reason =
+            err instanceof Error ? err.message : `Échec d’importation pour « ${rawFile.name} »`;
+          failedMessages.push(reason);
         }
-
-        const ext = getExtension(uniqueFileName);
-        const baseTitle = ext
-          ? uniqueFileName.slice(0, -(ext.length + 1))
-          : uniqueFileName;
-
-        const doc: VaultDocument = {
-          id: `vdoc_${stamp}_${i}`,
-          title: baseTitle || uniqueFileName,
-          category: inferVaultCategory(uniqueFileName, verified.mimeType),
-          fileName: uniqueFileName,
-          mimeType: verified.mimeType,
-          sizeBytes: check.size,
-          blobKey,
-          createdAt: new Date().toISOString(),
-        };
-
-        await dbService.put(STORES.VAULT_DOCUMENTS, doc);
-        addedCount++;
-        addedNames.push(uniqueFileName);
-      } catch (err) {
-        const reason =
-          err instanceof Error ? err.message : `Échec d’importation pour « ${rawFile.name} »`;
-        failedMessages.push(reason);
       }
+
+      await reloadData();
+      setIsImporting(false);
+
+      if (addedCount > 0) {
+        // Ensure immediate visibility in Vault: switch tab and clear active filters
+        setSubTab('vault');
+        setCategoryFilter('all');
+        setSearchQuery('');
+        setNotice(
+          isEn
+            ? `${addedCount} file(s) imported & verified in your Spiritual Vault: ${addedNames.join(', ')}`
+            : `${addedCount} fichier(s) importé(s) et vérifié(s) dans votre Coffre : ${addedNames.join(', ')}`
+        );
+      }
+
+      if (failedMessages.length > 0) {
+        setErrorBanner(failedMessages.join(' · '));
+      }
+    },
+    [isEn, reloadData, setSubTab]
+  );
+
+  const syncPendingSharedFiles = useCallback(async () => {
+    if (isSyncingSharedRef.current) return;
+    isSyncingSharedRef.current = true;
+    try {
+      const pendingItems = await consumePendingSharedFiles();
+      if (pendingItems.length > 0) {
+        const currentDocs = await dbService.getAll<VaultDocument>(STORES.VAULT_DOCUMENTS);
+        vaultDocumentsRef.current = currentDocs;
+        const freshFiles = pendingItems
+          .filter(
+            (item) =>
+              !currentDocs.some(
+                (d) => d.fileName === item.fileName && d.sizeBytes === item.blob.size
+              )
+          )
+          .map(
+            (item) =>
+              new File([item.blob], item.fileName, {
+                type: item.mimeType || item.blob.type || 'application/octet-stream',
+              })
+          );
+        if (freshFiles.length > 0) {
+          await processImportedFileList(freshFiles);
+        }
+        setRecentDownloads(getRecentDownloads());
+      }
+    } catch {
+      // ignore background share queue read errors
+    } finally {
+      isSyncingSharedRef.current = false;
     }
+  }, [processImportedFileList]);
 
-    await reloadData();
-    setIsImporting(false);
+  useEffect(() => {
+    void syncPendingSharedFiles();
+    const handleFocus = () => {
+      void syncPendingSharedFiles();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void syncPendingSharedFiles();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [syncPendingSharedFiles]);
 
-    if (addedCount > 0) {
-      // Ensure immediate visibility in Vault: switch tab and clear active filters
-      setSubTab('vault');
-      setCategoryFilter('all');
-      setSearchQuery('');
-      setNotice(
-        isEn
-          ? `${addedCount} file(s) imported & verified in your Spiritual Vault: ${addedNames.join(', ')}`
-          : `${addedCount} fichier(s) importé(s) et vérifié(s) dans votre Coffre : ${addedNames.join(', ')}`
-      );
-    }
-
-    if (failedMessages.length > 0) {
-      setErrorBanner(failedMessages.join(' · '));
+  const handleChooseDownloadDirectory = async () => {
+    try {
+      const outcome = await chooseShalomDownloadDirectory();
+      if (outcome.folderLabel) {
+        setNotice(
+          isEn
+            ? `Export folder ready: ${outcome.folderLabel}`
+            : `Dossier d’export prêt : ${outcome.folderLabel}`
+        );
+      }
+      if (outcome.requiresVirtualExplorer) {
+        setFolderExplorerReason(outcome.reason || null);
+        setFolderExplorerOpen(true);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setFolderExplorerReason(
+          isEn
+            ? 'Opening internal SHALOM FOLDER explorer.'
+            : 'Ouverture de l’explorateur interne DOSSIER SHALOM.'
+        );
+        setFolderExplorerOpen(true);
+      }
     }
   };
 
@@ -877,13 +970,6 @@ export const SpiritualVaultModule: React.FC = () => {
       )}&c=apps`
     : 'https://play.google.com/store/search?q=livres+chretiens+bible+ebook&c=apps';
 
-  const playBooksAppInstallHref =
-    'https://play.google.com/store/apps/details?id=com.google.android.apps.books';
-
-  const googleBooksWebHref = lastPlayStoreQuery
-    ? `https://books.google.com/books?q=${encodeURIComponent(lastPlayStoreQuery)}`
-    : 'https://books.google.com/';
-
   const downloadsFolderLabel = getLocalizedDownloadsLabel(isEn);
   const androidBridge = getNativeAndroidBridge();
 
@@ -897,6 +983,15 @@ export const SpiritualVaultModule: React.FC = () => {
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDropFiles}
     >
+      {/* Single shared file input for the entire Spiritual Vault */}
+      <input
+        ref={fileImportInputRef}
+        type="file"
+        multiple
+        accept="*/*"
+        onChange={handleImportFiles}
+        className="hidden"
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -1001,38 +1096,48 @@ export const SpiritualVaultModule: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <label className="min-h-[42px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-2 cursor-pointer transition shadow-xs whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => fileImportInputRef.current?.click()}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-2 transition shadow-xs whitespace-nowrap"
+              >
                 <Upload className="w-4 h-4 shrink-0" />
                 <span>
-                  {isEn ? 'Import Book / File (Android)' : 'Importer depuis l’appareil'}
+                  {isEn ? 'Import Book / File' : 'Importer depuis l’appareil'}
                 </span>
-                {/* Universal file picker ensures Android File Manager shows all downloaded books */}
-                <input
-                  type="file"
-                  multiple
-                  accept="*/*"
-                  onChange={handleImportFiles}
-                  className="hidden"
-                />
-              </label>
+              </button>
 
               <button
                 type="button"
                 onClick={() => setIsNoteModalOpen(true)}
-                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isEn ? 'Write Note' : 'Écrire'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleChooseDownloadDirectory}
+                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap"
+                title={
+                  isEn
+                    ? 'Open DOSSIER SHALOM exports & download directory'
+                    : 'Ouvrir votre DOSSIER SHALOM (exports et téléchargements)'
+                }
+              >
+                <FolderOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>DOSSIER SHALOM</span>
               </button>
 
               {recentDownloads.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowDownloadsLog((s) => !s)}
-                  className="min-h-[42px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap"
+                  className="min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <FolderDown className="w-4 h-4 text-blue-600" />
-                  <span>{downloadsFolderLabel.split(' ')[0]} ({recentDownloads.length})</span>
+                  <span>SHALOM DOWNLOAD ({recentDownloads.length})</span>
                 </button>
               )}
             </div>
@@ -1095,19 +1200,16 @@ export const SpiritualVaultModule: React.FC = () => {
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <label className="min-h-[44px] px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-sm cursor-pointer">
+                <button
+                  type="button"
+                  onClick={() => fileImportInputRef.current?.click()}
+                  className="min-h-[44px] px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-sm"
+                >
                   <Upload className="w-4 h-4" />
                   <span>
                     {isEn ? 'Select File from Phone' : 'Choisir un livre / fichier sur mon téléphone'}
                   </span>
-                  <input
-                    type="file"
-                    multiple
-                    accept="*/*"
-                    onChange={handleImportFiles}
-                    className="hidden"
-                  />
-                </label>
+                </button>
 
                 <button
                   type="button"
@@ -1256,8 +1358,8 @@ export const SpiritualVaultModule: React.FC = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                          <span className="text-[11px] text-slate-400 tabular-nums">
-                            {doc.createdAt.split('T')[0]}
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                            {doc.createdAt.split('T')[0]} · {isEn ? 'Stored locally ✓' : 'Stocké localement ✓'}
                           </span>
 
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -1322,47 +1424,29 @@ export const SpiritualVaultModule: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-300 uppercase tracking-wider">
                   <ShoppingBag className="w-4 h-4" />
-                  <span>Play Store & Google Livres</span>
+                  <span>Google Play Livres & Store</span>
                 </div>
                 <h3 className="text-base sm:text-lg font-extrabold font-display">
                   {isEn
-                    ? 'Find Books on Play Store & Google Books'
-                    : 'Play Store & Google Livres (tous pays)'}
+                    ? 'Find Books on Google Play'
+                    : 'Livres externes & Import dans le Coffre'}
                 </h3>
                 <p className="text-xs text-blue-100 leading-relaxed max-w-2xl">
                   {isEn
-                    ? 'Download any book from Play Store or browser, then tap the green button below to import it directly from Android Downloads into your SHALOM Vault.'
-                    : 'Téléchargez un livre depuis Play Store, Google Livres ou votre navigateur, puis appuyez sur « Importer un livre téléchargé » pour l’ajouter immédiatement à votre Coffre SHALOM.'}
+                    ? 'Android DRM-protected Google Play Books stay inside the Google Play Books app. For DRM-free PDF/EPUB files downloaded on your phone (or shared via Android Share → SHALOM), import them directly below.'
+                    : 'Sur Android, les livres achetés/protégés par DRM dans Play Livres restent chiffrés dans l’application Google Play Livres. Pour tout livre PDF ou EPUB libre téléchargé (ou envoyé via « Partager → SHALOM »), importez-le directement ci-dessous.'}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+              <div className="shrink-0 self-start sm:self-auto">
                 <a
                   href={playStoreAppsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition whitespace-nowrap"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  <span>{isEn ? 'Open Play Store' : 'Ouvrir Play Store'}</span>
-                </a>
-                <a
-                  href={playBooksAppInstallHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs flex items-center gap-1.5 transition"
-                >
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span>Play Livres (App)</span>
-                </a>
-                <a
-                  href={googleBooksWebHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs flex items-center gap-1.5 transition"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Google Livres</span>
+                  <span>{isEn ? 'Open Google Play Store' : 'Ouvrir Google Play Store'}</span>
                 </a>
               </div>
             </div>
@@ -1381,24 +1465,21 @@ export const SpiritualVaultModule: React.FC = () => {
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 rounded-xl bg-white text-[#0b1f42] hover:bg-blue-50 font-bold flex items-center justify-center gap-1.5"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-white text-[#0b1f42] hover:bg-blue-50 font-bold flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <Search className="w-3.5 h-3.5" />
                 <span>{isEn ? 'Search Play Store' : 'Rechercher sur Play Store'}</span>
               </button>
-              <label className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() => fileImportInputRef.current?.click()}
+                className="min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1.5 whitespace-nowrap"
+              >
                 <Upload className="w-3.5 h-3.5" />
                 <span>
                   {isEn ? 'Import Downloaded Book' : 'Importer un livre téléchargé → Coffre'}
                 </span>
-                <input
-                  type="file"
-                  multiple
-                  accept="*/*"
-                  onChange={handleImportFiles}
-                  className="hidden"
-                />
-              </label>
+              </button>
             </form>
           </div>
 
@@ -1946,6 +2027,14 @@ export const SpiritualVaultModule: React.FC = () => {
         isOpen={!!sharePayload}
         onClose={() => setSharePayload(null)}
         payload={sharePayload}
+      />
+
+      <ShalomFolderExplorerModal
+        isOpen={folderExplorerOpen}
+        onClose={() => setFolderExplorerOpen(false)}
+        reasonNotice={folderExplorerReason}
+        onRequestNativeFolder={handleChooseDownloadDirectory}
+        isEn={isEn}
       />
     </div>
   );
