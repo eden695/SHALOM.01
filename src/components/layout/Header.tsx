@@ -33,24 +33,24 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full bg-white/90 dark:bg-[#060d1d]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+      <header className="sticky top-0 z-30 w-full bg-white/90 dark:bg-[#060d1d]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-3 sm:px-6 min-h-14 pt-[env(safe-area-inset-top,0px)] py-1.5 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
           {showBackButton ? (
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 onClick={onGoBack}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-100 text-xs font-bold flex items-center gap-1.5 shrink-0 transition"
+                className="min-h-[40px] min-w-[40px] sm:min-w-0 px-2 sm:px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-100 text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition"
                 aria-label={t('header.back')}
                 title={t('header.back')}
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>{t('header.back')}</span>
+                <span className="hidden sm:inline">{t('header.back')}</span>
               </button>
               <button
                 type="button"
                 onClick={onGoHome}
-                className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/70 text-blue-700 dark:text-blue-200 border border-blue-200/70 dark:border-blue-800/60 text-xs font-bold flex items-center gap-1.5 shrink-0 transition"
+                className="min-h-[40px] min-w-[40px] sm:min-w-0 px-2 sm:px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/70 text-blue-700 dark:text-blue-200 border border-blue-200/70 dark:border-blue-800/60 text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition"
                 aria-label={t('header.home')}
                 title={t('header.home')}
               >
@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onGoHome}
-              className="lg:hidden w-8 h-8 rounded-lg overflow-hidden border border-amber-400/40 bg-[#0b1f42] shrink-0"
+              className="lg:hidden w-9 h-9 rounded-lg overflow-hidden border border-amber-400/40 bg-[#0b1f42] shrink-0"
               aria-label="SHALOM"
             >
               <img
@@ -74,24 +74,25 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate font-display">
               {pageTitle}
             </h1>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 lg:hidden leading-none mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 lg:hidden leading-none mt-0.5 truncate">
               {t('header.tagline')}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {isInstallable && (
             <button
               type="button"
               onClick={install}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition"
+              className="min-h-[40px] flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold transition"
+              aria-label={t('header.install')}
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               <span className="hidden sm:inline">{t('header.install')}</span>
             </button>
           )}
@@ -100,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => setShowIosPrompt(true)}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200"
+              className="min-h-[40px] px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200"
             >
               + iOS
             </button>
@@ -110,11 +111,12 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onLockClick}
-              className={`h-9 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold border transition ${
+              className={`min-h-[40px] min-w-[40px] sm:min-w-0 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs font-semibold border transition ${
                 isUnlocked
                   ? 'text-emerald-700 border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 dark:text-emerald-300'
                   : 'text-amber-700 border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 dark:text-amber-300'
               }`}
+              aria-label={t('header.lock')}
               title={t('header.lock')}
             >
               {isUnlocked ? <ShieldCheck className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
@@ -126,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onToggleDarkMode}
             aria-label="Basculer le thème"
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 transition"
+            className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 transition"
           >
             {isDarkMode ? (
               <Sun className="w-4 h-4 text-amber-400" />

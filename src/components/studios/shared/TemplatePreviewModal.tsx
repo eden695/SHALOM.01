@@ -166,7 +166,7 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-3 sm:p-5 flex flex-col items-center justify-center relative">
           <canvas
             ref={canvasRef}
-            className="max-w-full max-h-[42vh] object-contain rounded-xl shadow-lg"
+            className="max-w-full max-h-[34dvh] sm:max-h-[42vh] object-contain rounded-xl shadow-lg"
           />
 
           {pageOrSceneCount > 1 && (
@@ -175,7 +175,7 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                 type="button"
                 onClick={() => setSubIndex((i) => Math.max(0, i - 1))}
                 disabled={subIndex === 0}
-                className="min-w-[40px] min-h-[40px] rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center disabled:opacity-35 transition"
+                className="min-w-[44px] min-h-[44px] rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center disabled:opacity-35 transition"
                 aria-label="Précédent"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -189,7 +189,7 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                 type="button"
                 onClick={() => setSubIndex((i) => Math.min(pageOrSceneCount - 1, i + 1))}
                 disabled={subIndex >= pageOrSceneCount - 1}
-                className="min-w-[40px] min-h-[40px] rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center disabled:opacity-35 transition"
+                className="min-w-[44px] min-h-[44px] rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center disabled:opacity-35 transition"
                 aria-label="Suivant"
               >
                 <ChevronRight className="w-4 h-4" />

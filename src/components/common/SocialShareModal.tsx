@@ -261,7 +261,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
                 <img
                   src={previewUrl}
                   alt={payload.title}
-                  className="w-full max-h-56 object-contain mx-auto rounded-xl"
+                  className="w-full max-h-[32dvh] sm:max-h-56 object-contain mx-auto rounded-xl"
                   referrerPolicy="no-referrer"
                 />
               )}
@@ -270,7 +270,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
                   src={previewUrl}
                   controls
                   playsInline
-                  className="w-full max-h-56 rounded-xl mx-auto"
+                  className="w-full max-h-[32dvh] sm:max-h-56 rounded-xl mx-auto"
                 />
               )}
               {isAudio && <audio src={previewUrl} controls className="w-full" />}
@@ -368,7 +368,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
                 type="button"
                 disabled={isBusy}
                 onClick={() => handlePlatformClick(p.id, p.label)}
-                className={`min-h-[40px] py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs disabled:opacity-60 ${p.className}`}
+                className={`min-h-[44px] py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs disabled:opacity-60 ${p.className}`}
               >
                 {p.id === 'whatsapp' ? (
                   <MessageCircle className="w-3.5 h-3.5" />
@@ -383,7 +383,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
               type="button"
               disabled={isBusy}
               onClick={handleEmailShare}
-              className="min-h-[40px] py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs disabled:opacity-60 bg-rose-600 hover:bg-rose-700 text-white"
+              className="min-h-[44px] py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs disabled:opacity-60 bg-rose-600 hover:bg-rose-700 text-white"
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Gmail / E-mail</span>
@@ -423,7 +423,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
             <button
               type="button"
               onClick={handleCopyText}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5"
+              className="min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>Copier le texte</span>
@@ -433,7 +433,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownloadMedia}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5"
+                className="min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Télécharger</span>
@@ -444,7 +444,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="min-h-[44px] px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Fermer
           </button>

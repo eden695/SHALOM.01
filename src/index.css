@@ -3,10 +3,32 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
+  html,
   body {
-    @apply antialiased text-slate-800 bg-[#f8fafc] dark:bg-[#0b1329] dark:text-slate-100 min-h-screen selection:bg-blue-600 selection:text-white;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+
+  body {
+    @apply antialiased text-slate-800 bg-[#f8fafc] dark:bg-[#0b1329] dark:text-slate-100 min-h-dvh selection:bg-blue-600 selection:text-white;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  input,
+  textarea,
+  select {
+    scroll-margin-bottom: 120px;
+    scroll-margin-top: 80px;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom scrollbars for clean mobile & desktop experience */

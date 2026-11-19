@@ -280,22 +280,22 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
 
       {contacts.length > 0 && (
         <div className="p-3.5 rounded-2xl bg-white dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <div className="flex flex-1 gap-2">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row flex-1 gap-2 min-w-0">
+            <div className="relative flex-1 min-w-0">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Rechercher par nom, téléphone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
+                className="w-full min-h-[42px] sm:min-h-0 pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
               />
             </div>
 
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="text-xs px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+              className="min-h-[42px] sm:min-h-0 text-xs px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 w-full sm:w-auto max-w-full"
             >
               <option value="all">Tous ({contacts.length})</option>
               {CATEGORIES.map((cat) => (
@@ -365,7 +365,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
                     <button
                       type="button"
                       onClick={() => handleToggleSelect(contact.id)}
-                      className="text-slate-400 hover:text-blue-600"
+                      className="min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-400 hover:text-blue-600"
                     >
                       {isSelected ? (
                         <CheckSquare className="w-4 h-4 text-blue-600" />
@@ -443,14 +443,14 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
                   <button
                     type="button"
                     onClick={() => handleOpenEdit(contact)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeletingId(contact.id)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-red-500"
+                    className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1 rounded-lg text-slate-400 hover:text-red-500"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -500,7 +500,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
         title={editingContact ? 'Modifier le Contact' : 'Nouveau Contact'}
       >
         <form onSubmit={handleSave} className="space-y-3 text-xs">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold mb-1">Prénom *</label>
               <input
@@ -522,7 +522,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold mb-1">Téléphone (avec indicatif) *</label>
               <input
@@ -550,7 +550,7 @@ export const ContactsModule: React.FC<ContactsModuleProps> = ({ onStartCampaignW
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold mb-1">Quartier</label>
               <input

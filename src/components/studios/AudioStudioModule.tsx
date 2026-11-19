@@ -3464,12 +3464,12 @@ export const AudioStudioModule: React.FC = () => {
 
   // SELECTION TOOLBAR ABOVE TIMELINE
   const selectionToolbar = (
-    <div className="flex flex-wrap items-center gap-1.5 w-full text-xs">
+    <div className="flex flex-nowrap lg:flex-wrap items-center gap-1.5 w-max lg:w-full text-xs">
       <button
         type="button"
         onClick={handleTogglePreview}
         disabled={clips.length === 0}
-        className={`min-h-[38px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition disabled:opacity-40 ${
+        className={`shrink-0 min-h-[38px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap transition disabled:opacity-40 ${
           isPlayingPreview
             ? 'bg-rose-600 text-white'
             : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -3482,7 +3482,7 @@ export const AudioStudioModule: React.FC = () => {
       <button
         type="button"
         onClick={handleToggleMicRecord}
-        className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 ${
+        className={`shrink-0 min-h-[38px] px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap ${
           isRecordingMic
             ? 'bg-rose-600 text-white animate-pulse'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
@@ -3492,14 +3492,14 @@ export const AudioStudioModule: React.FC = () => {
         <span className="tabular-nums">{isRecordingMic ? `${micSeconds}s` : 'Rec'}</span>
       </button>
 
-      <span className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+      <span className="shrink-0 h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
       <button
         type="button"
         onClick={splitSelectedClipAtPlayhead}
         disabled={selectedClipIds.length !== 1}
         title="Scinder à la tête de lecture"
-        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1 disabled:opacity-40"
+        className="shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-40"
       >
         <Scissors className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">{isEn ? 'Split' : 'Scinder'}</span>
@@ -3509,7 +3509,7 @@ export const AudioStudioModule: React.FC = () => {
         type="button"
         onClick={duplicateSelectedBatch}
         disabled={selectedClipIds.length === 0}
-        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1 disabled:opacity-40"
+        className="shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-40"
       >
         <Copy className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">{isEn ? 'Duplicate' : 'Dupliquer'}</span>
@@ -3520,7 +3520,7 @@ export const AudioStudioModule: React.FC = () => {
         onClick={handleCopySelectedClips}
         disabled={selectedClipIds.length === 0}
         title="Ctrl+C"
-        className="min-h-[38px] px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold disabled:opacity-40"
+        className="shrink-0 min-h-[38px] min-w-[38px] px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center disabled:opacity-40"
       >
         <Copy className="w-3.5 h-3.5" />
       </button>
@@ -3530,7 +3530,7 @@ export const AudioStudioModule: React.FC = () => {
         onClick={handlePasteCopiedClips}
         disabled={copiedClips.length === 0}
         title="Ctrl+V"
-        className="min-h-[38px] px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold disabled:opacity-40"
+        className="shrink-0 min-h-[38px] min-w-[38px] px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center disabled:opacity-40"
       >
         <ClipboardPaste className="w-3.5 h-3.5" />
       </button>
@@ -3539,17 +3539,17 @@ export const AudioStudioModule: React.FC = () => {
         type="button"
         onClick={deleteSelectedBatch}
         disabled={selectedClipIds.length === 0}
-        className="min-h-[38px] px-2 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-600 font-semibold disabled:opacity-40"
+        className="shrink-0 min-h-[38px] min-w-[38px] px-2 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-600 font-semibold flex items-center justify-center disabled:opacity-40"
       >
         <Trash2 className="w-3.5 h-3.5" />
       </button>
 
-      <span className="h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
+      <span className="shrink-0 h-5 w-px bg-slate-200 dark:bg-slate-700 mx-0.5" />
 
       <button
         type="button"
         onClick={() => setIsMultiSelectMode((m) => !m)}
-        className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 ${
+        className={`shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg font-semibold flex items-center justify-center gap-1 whitespace-nowrap ${
           isMultiSelectMode
             ? 'bg-blue-700 text-white'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
@@ -3562,7 +3562,7 @@ export const AudioStudioModule: React.FC = () => {
       <button
         type="button"
         onClick={() => setSnapEnabled((s) => !s)}
-        className={`min-h-[38px] px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 ${
+        className={`shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg font-semibold flex items-center justify-center gap-1 ${
           snapEnabled
             ? 'bg-amber-500 text-slate-950'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
@@ -3574,18 +3574,18 @@ export const AudioStudioModule: React.FC = () => {
       <button
         type="button"
         onClick={addMarkerAtPlayhead}
-        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1"
+        className="shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center gap-1 whitespace-nowrap"
       >
         <Flag className="w-3.5 h-3.5 text-amber-500" />
         <span className="hidden xl:inline">{isEn ? 'Cue' : 'Repère'}</span>
       </button>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="shrink-0 ml-auto flex items-center gap-1">
         <button
           type="button"
           onClick={() => setZoomPxPerSec((z) => Math.max(20, z - 12))}
           aria-label="Dézoomer"
-          className="min-h-[34px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="min-h-[36px] min-w-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
@@ -3594,14 +3594,14 @@ export const AudioStudioModule: React.FC = () => {
           type="button"
           onClick={() => setZoomPxPerSec((z) => Math.min(140, z + 12))}
           aria-label="Zoomer"
-          className="min-h-[34px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="min-h-[36px] min-w-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           onClick={handleAddTrack}
-          className="min-h-[34px] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1"
+          className="min-h-[36px] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1 whitespace-nowrap"
         >
           <Plus className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">{isEn ? 'Track' : 'Piste'}</span>
@@ -3681,16 +3681,16 @@ export const AudioStudioModule: React.FC = () => {
       )}
 
       {/* Multi-Track Interactive Timeline Matrix */}
-      <div className="flex-1 min-h-[340px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b152c] overflow-hidden flex flex-col shadow-xs">
+      <div className="flex-1 min-h-[240px] sm:min-h-[340px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b152c] overflow-hidden flex flex-col shadow-xs">
         <div className="flex flex-1 overflow-x-auto">
           {/* Left Sticky Track Headers Column */}
-          <div className="w-[180px] sm:w-[220px] shrink-0 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#091228] flex flex-col">
-            <div className="h-9 px-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isEn ? 'Tracks' : 'Pistes'} ({tracks.length})</span>
+          <div className="sticky left-0 z-30 w-[124px] sm:w-[220px] shrink-0 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#091228] flex flex-col">
+            <div className="h-9 px-2 sm:px-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="flex items-center gap-1 min-w-0">
+                <Layers className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="truncate">{isEn ? 'Tracks' : 'Pistes'} ({tracks.length})</span>
               </span>
-              <span className="tabular-nums text-blue-700 dark:text-blue-400">
+              <span className="tabular-nums text-blue-700 dark:text-blue-400 shrink-0">
                 {playheadSec.toFixed(1)}s
               </span>
             </div>
@@ -3701,7 +3701,7 @@ export const AudioStudioModule: React.FC = () => {
                 <div
                   key={tr.id}
                   onClick={() => setSelectedTrackId(tr.id)}
-                  className={`h-[86px] px-2.5 py-2 border-b border-slate-200/80 dark:border-slate-800 flex flex-col justify-between cursor-pointer transition ${
+                  className={`h-[86px] px-2 sm:px-2.5 py-2 border-b border-slate-200/80 dark:border-slate-800 flex flex-col justify-between cursor-pointer transition ${
                     isSelectedTr ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''
                   }`}
                 >

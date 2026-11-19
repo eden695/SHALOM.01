@@ -167,7 +167,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            className="relative inline-block max-w-full max-h-[46vh] select-none touch-none"
+            className="relative inline-block max-w-full max-h-[38dvh] sm:max-h-[46vh] select-none touch-none"
             style={{ aspectRatio: `${natW} / ${natH}` }}
           >
             <img
@@ -188,11 +188,11 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             >
               <div
                 onPointerDown={(e) => handlePointerDown(e, 'nw')}
-                className="absolute -top-2.5 -left-2.5 w-6 h-6 rounded-full bg-amber-400 border-2 border-slate-950 cursor-nwse-resize"
+                className="absolute -top-4 -left-4 w-9 h-9 sm:-top-2.5 sm:-left-2.5 sm:w-6 sm:h-6 rounded-full bg-amber-400 border-2 border-slate-950 cursor-nwse-resize touch-none"
               />
               <div
                 onPointerDown={(e) => handlePointerDown(e, 'se')}
-                className="absolute -bottom-2.5 -right-2.5 w-6 h-6 rounded-full bg-amber-400 border-2 border-slate-950 cursor-nwse-resize"
+                className="absolute -bottom-4 -right-4 w-9 h-9 sm:-bottom-2.5 sm:-right-2.5 sm:w-6 sm:h-6 rounded-full bg-amber-400 border-2 border-slate-950 cursor-nwse-resize touch-none"
               />
             </div>
           </div>

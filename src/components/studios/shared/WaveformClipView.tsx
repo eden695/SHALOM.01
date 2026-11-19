@@ -187,25 +187,25 @@ export const WaveformClipView: React.FC<WaveformClipViewProps> = ({
         </span>
       </div>
 
-      {/* Left Interactive Trim Handle (Large 44px mobile-friendly hitbox) */}
+      {/* Left Interactive Trim Handle (Large mobile-friendly hitbox) */}
       {!locked && (
         <div
           role="slider"
           aria-label="Rogner le début du clip"
           onPointerDown={(e) => startPointerGesture(e, 'trim-left')}
-          className="absolute left-0 top-0 bottom-0 w-5 sm:w-3.5 -translate-x-1/3 flex items-center justify-center cursor-ew-resize z-30 group touch-none"
+          className="absolute left-0 top-0 bottom-0 w-7 sm:w-4 -translate-x-1/3 flex items-center justify-center cursor-ew-resize z-30 group touch-none"
         >
           <div className="w-1.5 h-7 rounded-full bg-white/95 group-hover:bg-amber-300 shadow-sm border border-slate-900/40" />
         </div>
       )}
 
-      {/* Right Interactive Trim Handle (Large 44px mobile-friendly hitbox) */}
+      {/* Right Interactive Trim Handle (Large mobile-friendly hitbox) */}
       {!locked && (
         <div
           role="slider"
           aria-label="Rogner la fin du clip"
           onPointerDown={(e) => startPointerGesture(e, 'trim-right')}
-          className="absolute right-0 top-0 bottom-0 w-5 sm:w-3.5 translate-x-1/3 flex items-center justify-center cursor-ew-resize z-30 group touch-none"
+          className="absolute right-0 top-0 bottom-0 w-7 sm:w-4 translate-x-1/3 flex items-center justify-center cursor-ew-resize z-30 group touch-none"
         >
           <div className="w-1.5 h-7 rounded-full bg-white/95 group-hover:bg-amber-300 shadow-sm border border-slate-900/40" />
         </div>

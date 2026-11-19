@@ -42,7 +42,7 @@ export const ShalomErrorPage: React.FC<ShalomErrorPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden bg-[#060e20] text-white flex items-center justify-center p-5 sm:p-8 select-none">
+    <div className="min-h-dvh w-full relative overflow-hidden bg-[#060e20] text-white flex items-center justify-center p-4 sm:p-8 select-none">
       {/* Background atmospheric artwork with night-blue veil */}
       <div className="absolute inset-0 pointer-events-none">
         <img

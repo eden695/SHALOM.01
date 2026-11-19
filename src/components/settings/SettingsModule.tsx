@@ -577,7 +577,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 self-start sm:self-auto">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 w-full sm:w-auto max-w-full overflow-x-auto no-scrollbar">
           {[
             { id: 'general', label: 'Profil & Apparence' },
             { id: 'notifications', label: 'Notifications' },
@@ -589,7 +589,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               key={t.id}
               type="button"
               onClick={() => setSubTab(t.id)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 ${
                 subTab === t.id
                   ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
@@ -618,7 +618,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </div>
 
               {/* Photo de profil utilisateur */}
-              <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div className="flex flex-col min-[380px]:flex-row items-start min-[380px]:items-center gap-3.5 sm:gap-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-[#0b1f42] text-white flex items-center justify-center font-bold text-lg shrink-0 border-2 border-amber-400/50">
                   {userForm.avatarDataUrl ? (
                     <img
@@ -802,12 +802,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold mb-1">Thème visuel</label>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
                   <span>Mode Sombre / Nuit</span>
                   <button
                     type="button"
                     onClick={onToggleDarkMode}
-                    className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 font-bold"
+                    className="min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 font-bold"
                   >
                     {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
                     <span>{isDarkMode ? 'Activé' : 'Désactivé'}</span>
@@ -817,8 +817,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold mb-1">Aide et conseils d’utilisation</label>
-                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
-                  <div className="flex items-start gap-2.5">
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 sm:gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-semibold text-slate-900 dark:text-white block">
@@ -832,7 +832,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                   <button
                     type="button"
                     onClick={() => handleToggleUsageTips(!showUsageTips)}
-                    className={`px-3 py-1.5 rounded-lg border font-bold shrink-0 transition ${
+                    className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-lg border font-bold shrink-0 transition ${
                       showUsageTips
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
@@ -990,8 +990,8 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                         : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
+                    <div className="flex flex-col min-[380px]:flex-row min-[380px]:items-start justify-between gap-2.5 sm:gap-3">
+                      <div className="flex items-start gap-2.5 min-w-0">
                         {cfg.enabled ? (
                           <Bell className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0 mt-0.5" />
                         ) : (
@@ -1010,7 +1010,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                       <button
                         type="button"
                         onClick={() => handleUpdateReminder(item.key, { enabled: !cfg.enabled })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 border transition ${
+                        className={`min-h-[40px] sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 border transition self-start min-[380px]:self-auto ${
                           cfg.enabled
                             ? 'bg-blue-700 text-white border-blue-700'
                             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
@@ -1215,7 +1215,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 min-[340px]:grid-cols-3 gap-2.5">
               {[
                 { id: 'pin', label: 'Code PIN', hint: '4 chiffres', icon: Hash },
                 { id: 'password', label: 'Mot de passe', hint: 'Texte libre', icon: KeyRound },

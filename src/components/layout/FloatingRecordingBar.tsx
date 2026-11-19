@@ -38,10 +38,10 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
   const [isStopping, setIsStopping] = useState(false);
   const [photoFeedback, setPhotoFeedback] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
-    if (typeof window === 'undefined') return { x: 16, y: 16 };
+    if (typeof window === 'undefined') return { x: 12, y: 72 };
     return {
-      x: Math.max(12, Math.min(window.innerWidth - 332, window.innerWidth - 344)),
-      y: Math.max(72, window.innerHeight - 156),
+      x: Math.max(8, Math.min(window.innerWidth - 320, window.innerWidth - 340)),
+      y: Math.max(64, window.innerHeight - 176),
     };
   });
 
@@ -57,8 +57,8 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
   useEffect(() => {
     const clampOnResize = () => {
       setPosition((prev) => ({
-        x: Math.max(8, Math.min(window.innerWidth - 180, prev.x)),
-        y: Math.max(56, Math.min(window.innerHeight - 90, prev.y)),
+        x: Math.max(8, Math.min(Math.max(8, window.innerWidth - 180), prev.x)),
+        y: Math.max(56, Math.min(Math.max(56, window.innerHeight - 110), prev.y)),
       }));
     };
     window.addEventListener('resize', clampOnResize);
@@ -198,11 +198,11 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
           <button
             type="button"
             onClick={() => setIsFloatingBubbleHidden(true)}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center shrink-0"
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center shrink-0"
             title="Masquer la bulle sans arrêter l'enregistrement"
             aria-label="Masquer la bulle"
           >
-            <EyeOff className="w-3.5 h-3.5 text-slate-200" />
+            <EyeOff className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-200" />
           </button>
         </div>
 
@@ -210,7 +210,7 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
           <button
             type="button"
             onClick={pauseOrResume}
-            className="flex-1 min-h-[40px] px-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+            className="flex-1 min-h-[44px] sm:min-h-[40px] px-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-bold flex items-center justify-center gap-1.5 transition"
             title={recorderState.isPaused ? 'Reprendre' : 'Mettre en pause'}
           >
             {recorderState.isPaused ? (
@@ -229,7 +229,7 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
           <button
             type="button"
             onClick={handleQuickPhoto}
-            className={`min-h-[40px] px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition ${
+            className={`min-h-[44px] sm:min-h-[40px] px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition ${
               photoFeedback
                 ? 'bg-emerald-500 text-slate-950'
                 : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
@@ -246,7 +246,7 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
             type="button"
             onClick={handleQuickStop}
             disabled={isStopping}
-            className="min-h-[40px] px-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-xs font-bold flex items-center justify-center gap-1 transition"
+            className="min-h-[44px] sm:min-h-[40px] px-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-xs font-bold flex items-center justify-center gap-1 transition"
             title="Arrêter et enregistrer"
           >
             <Square className="w-3 h-3 fill-current" />
@@ -256,7 +256,7 @@ export const FloatingRecordingBar: React.FC<FloatingRecordingBarProps> = ({
           <button
             type="button"
             onClick={handleOpenRecorder}
-            className="w-10 min-h-[40px] rounded-xl bg-blue-600 hover:bg-blue-500 flex items-center justify-center shrink-0 transition"
+            className="w-11 sm:w-10 min-h-[44px] sm:min-h-[40px] rounded-xl bg-blue-600 hover:bg-blue-500 flex items-center justify-center shrink-0 transition"
             title="Ouvrir Parole Divine"
             aria-label="Ouvrir Parole Divine"
           >

@@ -206,7 +206,7 @@ export const ShalomFolderExplorerModal: React.FC<ShalomFolderExplorerModalProps>
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-200 dark:divide-slate-800 max-h-72 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="divide-y divide-slate-200 dark:divide-slate-800 max-h-[45dvh] sm:max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-slate-200 dark:border-slate-800">
             {files.map((item) => (
               <div
                 key={item.id}
@@ -215,7 +215,7 @@ export const ShalomFolderExplorerModal: React.FC<ShalomFolderExplorerModalProps>
                 <button
                   type="button"
                   onClick={() => handlePreviewEntry(item)}
-                  className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+                  className="flex items-center gap-2.5 min-w-0 flex-1 text-left min-h-[40px]"
                 >
                   {renderIcon(item.mimeType)}
                   <div className="min-w-0">
@@ -232,7 +232,7 @@ export const ShalomFolderExplorerModal: React.FC<ShalomFolderExplorerModalProps>
                   <button
                     type="button"
                     onClick={() => handleDownloadEntry(item)}
-                    className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold flex items-center gap-1"
+                    className="min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-0 px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-semibold flex items-center justify-center gap-1"
                     title={isEn ? 'Download' : 'Télécharger'}
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -241,7 +241,7 @@ export const ShalomFolderExplorerModal: React.FC<ShalomFolderExplorerModalProps>
                   <button
                     type="button"
                     onClick={() => handleDeleteEntry(item.id)}
-                    className="min-h-[36px] min-w-[36px] rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-center"
+                    className="min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-center"
                     aria-label="Supprimer export"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

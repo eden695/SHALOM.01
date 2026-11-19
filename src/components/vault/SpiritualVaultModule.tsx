@@ -1009,12 +1009,12 @@ export const SpiritualVaultModule: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+        <div className="flex flex-wrap items-center gap-2 max-w-full">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 overflow-x-auto no-scrollbar max-w-full">
             <button
               type="button"
               onClick={() => setSubTab('vault')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
+              className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 ${
                 subTab === 'vault'
                   ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
@@ -1025,7 +1025,7 @@ export const SpiritualVaultModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setSubTab('library')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 whitespace-nowrap ${
+              className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 subTab === 'library'
                   ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
@@ -1160,8 +1160,8 @@ export const SpiritualVaultModule: React.FC = () => {
               </div>
               <div className="divide-y divide-slate-200/70 dark:divide-slate-800">
                 {recentDownloads.slice(0, 5).map((dl) => (
-                  <div key={dl.id} className="py-1.5 flex items-center justify-between gap-2">
-                    <div className="min-w-0 truncate">
+                  <div key={dl.id} className="py-1.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1 truncate">
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
                         {dl.fileName}
                       </span>
@@ -1173,7 +1173,7 @@ export const SpiritualVaultModule: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => androidBridge.openDownloadedFile?.(dl.fileName, dl.mimeType)}
-                        className="px-2.5 py-1 rounded-lg bg-blue-700 text-white text-[11px] font-bold shrink-0"
+                        className="min-h-[36px] sm:min-h-0 px-2.5 py-1 rounded-lg bg-blue-700 text-white text-[11px] font-bold shrink-0"
                       >
                         Ouvrir
                       </button>
@@ -1225,7 +1225,7 @@ export const SpiritualVaultModule: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap pb-0.5">
                 {[
                   { id: 'all', label: isEn ? 'All' : 'Tous' },
                   { id: 'livre', label: isEn ? 'Books' : 'Livres' },
@@ -1238,7 +1238,7 @@ export const SpiritualVaultModule: React.FC = () => {
                     key={cat.id}
                     type="button"
                     onClick={() => setCategoryFilter(cat.id)}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition ${
+                    className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition whitespace-nowrap shrink-0 ${
                       categoryFilter === cat.id
                         ? 'bg-[#0b1f42] text-white dark:bg-blue-700'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -1366,7 +1366,7 @@ export const SpiritualVaultModule: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setViewingDoc(doc)}
-                              className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1"
+                              className="min-h-[38px] sm:min-h-0 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               <span>{isEn ? 'Open' : 'Ouvrir'}</span>
@@ -1374,7 +1374,7 @@ export const SpiritualVaultModule: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => openEditDocModal(doc)}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                              className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
                               title={isEn ? 'Rename & Organize' : 'Renommer & Classer'}
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -1382,7 +1382,7 @@ export const SpiritualVaultModule: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleSaveDocToPhone(doc)}
-                              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1"
+                              className="min-h-[38px] sm:min-h-0 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1"
                               title={`Enregistrer dans ${downloadsFolderLabel}`}
                             >
                               <Download className="w-3.5 h-3.5" />
@@ -1391,7 +1391,7 @@ export const SpiritualVaultModule: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleShareVaultDoc(doc)}
-                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                              className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
                               title={isEn ? 'Share' : 'Partager'}
                             >
                               <Share2 className="w-3.5 h-3.5" />
@@ -1399,7 +1399,7 @@ export const SpiritualVaultModule: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setConfirmDeleteDocs([doc])}
-                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600"
+                              className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600"
                               title={isEn ? 'Delete' : 'Supprimer'}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1912,7 +1912,7 @@ export const SpiritualVaultModule: React.FC = () => {
                 </div>
                 <div
                   style={{ fontSize: `${readerFontSize}px` }}
-                  className="p-4 sm:p-6 rounded-2xl bg-amber-50/40 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 max-h-[60vh] overflow-y-auto leading-relaxed whitespace-pre-wrap font-serif text-slate-800 dark:text-slate-100"
+                  className="p-4 sm:p-6 rounded-2xl bg-amber-50/40 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 max-h-[50dvh] sm:max-h-[60vh] overflow-y-auto overscroll-contain leading-relaxed whitespace-pre-wrap font-serif text-slate-800 dark:text-slate-100"
                 >
                   {viewingText}
                 </div>
@@ -1923,7 +1923,7 @@ export const SpiritualVaultModule: React.FC = () => {
               <img
                 src={viewingBlobUrl}
                 alt={viewingDoc.title}
-                className="max-h-[60vh] mx-auto rounded-xl object-contain"
+                className="max-h-[50dvh] sm:max-h-[60vh] mx-auto rounded-xl object-contain"
               />
             )}
 
@@ -1932,7 +1932,7 @@ export const SpiritualVaultModule: React.FC = () => {
                 <iframe
                   src={viewingBlobUrl}
                   title={viewingDoc.title}
-                  className="w-full h-[55vh] rounded-xl border border-slate-200 dark:border-slate-800 bg-white"
+                  className="w-full h-[45dvh] sm:h-[55vh] rounded-xl border border-slate-200 dark:border-slate-800 bg-white"
                 />
                 <p className="text-[11px] text-slate-500">
                   Astuce Android : si le PDF ne s’affiche pas dans le cadre ci-dessus, appuyez sur « Téléchargements » ou « Partager » pour l’ouvrir avec votre lecteur PDF du téléphone.
@@ -1949,7 +1949,7 @@ export const SpiritualVaultModule: React.FC = () => {
                 src={viewingBlobUrl}
                 controls
                 playsInline
-                className="w-full max-h-[55vh] rounded-xl"
+                className="w-full max-h-[45dvh] sm:max-h-[55vh] rounded-xl"
               />
             )}
 

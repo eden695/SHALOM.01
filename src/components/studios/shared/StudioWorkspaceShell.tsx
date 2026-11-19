@@ -88,10 +88,10 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#081024] shadow-sm overflow-hidden">
       {/* 1. COMPACT TOP PROJECT BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-50/90 dark:bg-[#0c1631] border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2 bg-slate-50/90 dark:bg-[#0c1631] border-b border-slate-200 dark:border-slate-800">
         {/* Left: Editable title + status + undo/redo */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="min-w-0 flex-1 max-w-[240px] sm:max-w-[300px]">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+          <div className="min-w-[110px] flex-1 max-w-[240px] sm:max-w-[300px]">
             <input
               type="text"
               value={projectTitle}
@@ -212,7 +212,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
       </div>
 
       {/* 2. MAIN WORKSPACE AREA */}
-      <div className="flex flex-1 min-h-[540px] lg:min-h-[650px] relative">
+      <div className="flex flex-1 min-h-[340px] sm:min-h-[460px] lg:min-h-[650px] relative">
         {/* Desktop Left Vertical Tool Rail */}
         <aside className="hidden lg:flex flex-col w-[76px] shrink-0 bg-slate-50 dark:bg-[#0a1329] border-r border-slate-200 dark:border-slate-800 py-2 px-1.5 gap-1 overflow-y-auto">
           {toolItems.map((item) => {
@@ -272,7 +272,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
         {/* Central Canvas / Stage + Contextual Selection Toolbar + Bottom Strip */}
         <div className="flex-1 min-w-0 flex flex-col bg-slate-100/80 dark:bg-[#050b19]">
           {selectionToolbar && (
-            <div className="px-3 py-2 bg-white/95 dark:bg-[#0c1631]/95 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-1.5 backdrop-blur-xs">
+            <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white/95 dark:bg-[#0c1631]/95 border-b border-slate-200 dark:border-slate-800 flex flex-nowrap overflow-x-auto no-scrollbar lg:flex-wrap items-center gap-1.5 backdrop-blur-xs">
               {selectionToolbar}
             </div>
           )}
@@ -359,7 +359,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
               else if (isInspectorOpen && onToggleInspector) onToggleInspector();
             }}
           />
-          <div className="bg-white dark:bg-[#0c1631] rounded-t-3xl border-t border-slate-200 dark:border-slate-800 shadow-2xl max-h-[72dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
+          <div className="bg-white dark:bg-[#0c1631] rounded-t-3xl border-t border-slate-200 dark:border-slate-800 shadow-2xl max-h-[78dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
             <div className="flex justify-center pt-2.5 pb-1">
               <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700" />
             </div>
@@ -381,7 +381,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto touch-pan-y p-4 pb-8 space-y-3">
+            <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-4 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] space-y-3">
               {activeTool ? toolDrawerContent : inspectorContent}
             </div>
           </div>

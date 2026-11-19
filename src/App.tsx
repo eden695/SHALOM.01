@@ -199,7 +199,7 @@ function ShalomAppShell({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f7f8fa] dark:bg-[#060d1d] text-slate-800 dark:text-slate-100 p-4">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-[#f7f8fa] dark:bg-[#060d1d] text-slate-800 dark:text-slate-100 p-4">
         <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-amber-400/50 shadow-xl mb-4 animate-pulse">
           <img
             src="./shalom_logo.jpg"
@@ -224,7 +224,7 @@ function ShalomAppShell({
     : 'SHALOM';
 
   return (
-    <div className="min-h-screen flex bg-[#f7f8fa] dark:bg-[#060d1d] text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-dvh flex bg-[#f7f8fa] dark:bg-[#060d1d] text-slate-900 dark:text-slate-100 transition-colors">
       <Sidebar
         userName={userProfile?.fullName}
         userAvatarUrl={userProfile?.avatarDataUrl}
@@ -259,7 +259,7 @@ function ShalomAppShell({
               <button
                 type="button"
                 onClick={() => setActiveReminderBanner(null)}
-                className="p-1.5 rounded-lg hover:bg-white/15 shrink-0"
+                className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-white/15 shrink-0"
                 aria-label="Fermer le rappel"
               >
                 <X className="w-4 h-4" />
@@ -269,10 +269,10 @@ function ShalomAppShell({
         )}
 
         <main
-          className={`flex-1 w-full mx-auto ${
+          className={`flex-1 w-full mx-auto min-w-0 ${
             activeTab === 'studios'
-              ? 'max-w-none p-2 sm:p-3 lg:p-4 pb-20 lg:pb-4'
-              : 'max-w-5xl p-4 sm:p-6 pb-24 lg:pb-10'
+              ? 'max-w-none p-2 sm:p-3 lg:p-4 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:pb-4'
+              : 'max-w-5xl p-3.5 sm:p-6 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] lg:pb-10'
           }`}
         >
           {activeTab === 'dashboard' && (

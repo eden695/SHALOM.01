@@ -205,7 +205,7 @@ export const PatternGrid: React.FC<PatternGridProps> = ({
           }
         }}
         style={{ touchAction: 'none' }}
-        className="relative w-60 h-60 touch-none bg-slate-50 dark:bg-slate-900/80 rounded-2xl border-2 border-slate-200 dark:border-slate-700 p-2 cursor-crosshair shadow-inner"
+        className="relative w-52 h-52 sm:w-60 sm:h-60 touch-none bg-slate-50 dark:bg-slate-900/80 rounded-2xl border-2 border-slate-200 dark:border-slate-700 p-2 cursor-crosshair shadow-inner"
       >
         {/* SVG Lines + Active Rubber-Band Line */}
         <svg viewBox="0 0 300 300" className="absolute inset-0 w-full h-full pointer-events-none">
@@ -286,7 +286,7 @@ export const PatternGrid: React.FC<PatternGridProps> = ({
           isDrawingRef.current = false;
           setIsDrawing(false);
         }}
-        className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1"
+        className="min-h-[40px] px-3 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1"
       >
         <RotateCcw className="w-3 h-3" />
         <span>Effacer le tracé</span>

@@ -94,8 +94,8 @@ export const LockModal: React.FC<LockModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-sm bg-white dark:bg-[#0c1631] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+      <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto overscroll-contain bg-white dark:bg-[#0c1631] rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 sm:space-y-5">
         <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 mx-auto flex items-center justify-center">
           <Lock className="w-6 h-6" />
         </div>

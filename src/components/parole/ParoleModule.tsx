@@ -650,22 +650,22 @@ export const ParoleModule: React.FC = () => {
           </div>
 
           <div className="flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
-            <div className="flex flex-1 gap-2">
-              <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row flex-1 gap-2 min-w-0">
+              <div className="relative flex-1 min-w-0">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Rechercher par thème, prédicateur, verset..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+                  className="w-full min-h-[42px] sm:min-h-0 pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                 />
               </div>
 
               <select
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
-                className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                className="min-h-[42px] sm:min-h-0 text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 w-full sm:w-auto"
               >
                 <option value="all">Toutes activités</option>
                 {ACTIVITY_GENRES.map((g) => (
@@ -676,7 +676,7 @@ export const ParoleModule: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 self-start sm:self-auto">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 w-full md:w-auto max-w-full overflow-x-auto no-scrollbar">
               {[
                 { id: 'all', label: 'Tout' },
                 { id: 'predication', label: 'Prédications' },
@@ -687,7 +687,7 @@ export const ParoleModule: React.FC = () => {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveFilterType(item.id)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 ${
                     activeFilterType === item.id
                       ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-blue-200 shadow-xs'
                       : 'text-slate-600 dark:text-slate-400'
@@ -821,7 +821,7 @@ export const ParoleModule: React.FC = () => {
                     type="button"
                     onClick={() => handleShareParole(parole)}
                     aria-label="Partager"
-                    className="p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition"
+                    className="min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition"
                   >
                     <Share2 className="w-4 h-4" />
                   </button>
@@ -829,7 +829,7 @@ export const ParoleModule: React.FC = () => {
                     type="button"
                     onClick={() => setDeletingId(parole.id)}
                     aria-label="Supprimer"
-                    className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition"
+                    className="min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -875,48 +875,48 @@ export const ParoleModule: React.FC = () => {
       >
         <div className="space-y-4">
           {!recorderState.isRecording && (
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setCaptureMethod('mic')}
-                className={`py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
+                className={`min-h-[42px] sm:min-h-0 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
                   captureMethod === 'mic'
                     ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                <Mic className="w-3.5 h-3.5" />
+                <Mic className="w-3.5 h-3.5 shrink-0" />
                 <span>Audio Micro</span>
               </button>
               <button
                 type="button"
                 onClick={() => setCaptureMethod('video')}
-                className={`py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
+                className={`min-h-[42px] sm:min-h-0 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
                   captureMethod === 'video'
                     ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                <Video className="w-3.5 h-3.5" />
+                <Video className="w-3.5 h-3.5 shrink-0" />
                 <span>Vidéo Caméra</span>
               </button>
               <button
                 type="button"
                 onClick={() => setCaptureMethod('import')}
-                className={`py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
+                className={`min-h-[42px] sm:min-h-0 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
                   captureMethod === 'import'
                     ? 'bg-white dark:bg-[#0f2b5c] text-blue-700 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
-                <Upload className="w-3.5 h-3.5" />
+                <Upload className="w-3.5 h-3.5 shrink-0" />
                 <span>Importer Fichier</span>
               </button>
             </div>
           )}
 
           {/* Capture Studio Panel */}
-          <div className="p-5 rounded-2xl bg-[#0b1736] text-white flex flex-col items-center justify-center min-h-[190px] relative overflow-hidden">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#0b1736] text-white flex flex-col items-center justify-center min-h-[190px] relative overflow-hidden">
             {captureMethod === 'video' && (
               <div className={`relative w-full mb-3 ${recorderState.isRecording ? 'block' : 'hidden'}`}>
                 <video
@@ -924,22 +924,28 @@ export const ParoleModule: React.FC = () => {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full min-h-[280px] max-h-[68vh] object-cover rounded-xl bg-black"
+                  className="w-full min-h-[200px] sm:min-h-[280px] max-h-[46dvh] sm:max-h-[68vh] object-cover rounded-xl bg-black"
                 />
                 {recorderState.isRecording && (
                   <button
                     type="button"
                     onClick={handleSwitchCamera}
                     disabled={isSwitchingCamera}
-                    className="absolute top-2.5 right-2.5 px-3 py-1.5 rounded-full bg-slate-950/75 hover:bg-slate-900 backdrop-blur-xs border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition disabled:opacity-50"
+                    className="min-h-[36px] absolute top-2.5 right-2.5 px-3 py-1.5 rounded-full bg-slate-950/75 hover:bg-slate-900 backdrop-blur-xs border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition disabled:opacity-50"
                   >
                     <SwitchCamera className="w-3.5 h-3.5 text-amber-300" />
                     <span>
-                      {isSwitchingCamera
-                        ? 'Basculement...'
-                        : facingMode === 'user'
-                        ? 'Caméra avant · Basculer'
-                        : 'Caméra arrière · Basculer'}
+                      {isSwitchingCamera ? (
+                        'Basculement...'
+                      ) : facingMode === 'user' ? (
+                        <>
+                          <span className="hidden sm:inline">Caméra avant · </span>Basculer
+                        </>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">Caméra arrière · </span>Basculer
+                        </>
+                      )}
                     </span>
                   </button>
                 )}
@@ -977,7 +983,7 @@ export const ParoleModule: React.FC = () => {
                   <button
                     type="button"
                     onClick={pauseOrResume}
-                    className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition"
                     title={recorderState.isPaused ? 'Reprendre' : 'Pause'}
                   >
                     {recorderState.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
@@ -986,7 +992,7 @@ export const ParoleModule: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleCapturePhotoDuringRecording}
-                    className="px-3.5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-xs"
+                    className="min-h-[44px] px-3.5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-xs"
                   >
                     <Camera className="w-4 h-4" />
                     <span>{captureMethod === 'mic' && isAudioPhotoCamOpen ? 'Capturer photo' : 'Prendre photo'}</span>
@@ -995,7 +1001,7 @@ export const ParoleModule: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleStopRecording}
-                    className="px-4 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 transition"
+                    className="min-h-[44px] px-4 py-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 transition"
                   >
                     <Square className="w-3.5 h-3.5 fill-current" />
                     <span>Terminer</span>
@@ -1071,7 +1077,7 @@ export const ParoleModule: React.FC = () => {
                     src={finishedRecording.previewUrl}
                     controls
                     playsInline
-                    className="w-full rounded-xl max-h-[58vh] object-contain bg-black"
+                    className="w-full rounded-xl max-h-[45dvh] sm:max-h-[58vh] object-contain bg-black"
                   />
                 ) : (
                   <audio src={finishedRecording.previewUrl} controls className="w-full" />
@@ -1348,7 +1354,7 @@ export const ParoleModule: React.FC = () => {
                     controls
                     autoPlay
                     playsInline
-                    className="w-full rounded-xl max-h-[65vh] object-contain bg-black"
+                    className="w-full rounded-xl max-h-[48dvh] sm:max-h-[65vh] object-contain bg-black"
                   />
                 ) : (
                   <div className="w-full space-y-3">

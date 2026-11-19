@@ -495,7 +495,7 @@ export const SpiritualJourneyModule: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Weekly / Monthly Chart */}
             <div className="p-5 rounded-2xl bg-white dark:bg-[#0c1631] border border-slate-200/80 dark:border-slate-800/80 space-y-4">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                   {isEn ? 'Spiritual Progression' : 'Progression hebdomadaire & mensuelle'}
                 </h3>
@@ -526,7 +526,7 @@ export const SpiritualJourneyModule: React.FC = () => {
               </div>
 
               {progressView === 'weekly' ? (
-                <div className="grid grid-cols-7 gap-2 items-end h-40 pt-4">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 items-end h-40 pt-4">
                   {weeklyData.days.map((d) => {
                     const heightPct =
                       d.count === 0
@@ -716,7 +716,7 @@ export const SpiritualJourneyModule: React.FC = () => {
                                 label: p.title,
                               })
                             }
-                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            className="min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -903,7 +903,7 @@ export const SpiritualJourneyModule: React.FC = () => {
                           label: `${habitConfig[log.type].label} (${log.date})`,
                         })
                       }
-                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 shrink-0"
+                      className="min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1090,7 +1090,7 @@ export const SpiritualJourneyModule: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold mb-1">{isEn ? 'Start Date' : 'Date de début'}</label>
               <input

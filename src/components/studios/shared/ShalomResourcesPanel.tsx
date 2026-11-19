@@ -56,7 +56,7 @@ export const ShalomResourcesPanel: React.FC<ShalomResourcesPanelProps> = ({
         <button
           type="button"
           onClick={() => setFilter('all')}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition ${
+          className={`flex-1 min-h-[38px] sm:min-h-0 py-1.5 px-2 rounded-lg font-semibold transition ${
             filter === 'all'
               ? 'bg-white dark:bg-blue-700 text-blue-700 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400'
@@ -67,7 +67,7 @@ export const ShalomResourcesPanel: React.FC<ShalomResourcesPanelProps> = ({
         <button
           type="button"
           onClick={() => setFilter('template')}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition ${
+          className={`flex-1 min-h-[38px] sm:min-h-0 py-1.5 px-2 rounded-lg font-semibold transition ${
             filter === 'template'
               ? 'bg-white dark:bg-blue-700 text-blue-700 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400'
@@ -78,7 +78,7 @@ export const ShalomResourcesPanel: React.FC<ShalomResourcesPanelProps> = ({
         <button
           type="button"
           onClick={() => setFilter('media')}
-          className={`flex-1 py-1.5 px-2 rounded-lg font-semibold transition ${
+          className={`flex-1 min-h-[38px] sm:min-h-0 py-1.5 px-2 rounded-lg font-semibold transition ${
             filter === 'media'
               ? 'bg-white dark:bg-blue-700 text-blue-700 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400'
@@ -167,7 +167,7 @@ export const ShalomResourcesPanel: React.FC<ShalomResourcesPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onApplyItem(item)}
-                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-bold whitespace-nowrap"
+                    className="min-h-[40px] sm:min-h-[34px] px-2.5 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-bold whitespace-nowrap"
                   >
                     {isResourceMedia
                       ? isEn
@@ -181,7 +181,7 @@ export const ShalomResourcesPanel: React.FC<ShalomResourcesPanelProps> = ({
                     type="button"
                     onClick={() => onDeleteItem(item)}
                     aria-label="Supprimer"
-                    className="min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+                    className="min-w-[40px] min-h-[40px] sm:min-w-[34px] sm:min-h-[34px] rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

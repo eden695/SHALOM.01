@@ -518,7 +518,7 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
                 1. Canal d’envoi
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setChannel('whatsapp')}
@@ -645,18 +645,18 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
                       onChange={(e) => setQuickName(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
                     />
-                    <div className="flex gap-1.5">
+                    <div className="flex flex-col min-[340px]:flex-row gap-1.5">
                       <input
                         type="tel"
                         required
                         placeholder="Numéro avec indicatif pays"
                         value={quickPhone}
                         onChange={(e) => setQuickPhone(e.target.value)}
-                        className="flex-1 px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+                        className="flex-1 min-h-[40px] sm:min-h-0 px-2.5 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
                       />
                       <button
                         type="submit"
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold"
+                        className="min-h-[40px] sm:min-h-0 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold shrink-0"
                       >
                         OK
                       </button>
@@ -769,7 +769,7 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40">
               <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
                 {campaignResults.filter((r) => r.status === 'confirme_envoye').length}
@@ -939,11 +939,11 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
                 Le message a-t-il été envoyé ?
               </h4>
 
-              <div className="grid grid-cols-3 gap-2 pt-2">
+              <div className="grid grid-cols-1 min-[340px]:grid-cols-3 gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => handleConfirmResult('confirme_envoye')}
-                  className="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1"
+                  className="min-h-[44px] sm:min-h-0 py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Envoyé</span>
@@ -952,7 +952,7 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleConfirmResult('ignore')}
-                  className="py-2.5 px-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center justify-center gap-1"
+                  className="min-h-[44px] sm:min-h-0 py-2.5 px-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs flex items-center justify-center gap-1"
                 >
                   <SkipForward className="w-3.5 h-3.5" />
                   <span>Ignorer</span>
@@ -961,7 +961,7 @@ export const MessagingModule: React.FC<MessagingModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => handleConfirmResult('echec')}
-                  className="py-2.5 px-2 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-semibold text-xs flex items-center justify-center gap-1"
+                  className="min-h-[44px] sm:min-h-0 py-2.5 px-2 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-semibold text-xs flex items-center justify-center gap-1"
                 >
                   <XCircle className="w-3.5 h-3.5" />
                   <span>Échec</span>

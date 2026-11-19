@@ -598,22 +598,22 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
         <div className="space-y-4">
           {prayers.length > 0 && (
             <div className="flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
-              <div className="flex flex-1 gap-2 flex-wrap sm:flex-nowrap">
-                <div className="relative flex-1 min-w-[200px]">
+              <div className="grid grid-cols-2 sm:flex sm:flex-1 gap-2">
+                <div className="relative col-span-2 sm:flex-1 sm:min-w-[200px]">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Rechercher une requête, un verset..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
+                    className="w-full min-h-[42px] sm:min-h-0 pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-600 focus:outline-hidden"
                   />
                 </div>
 
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                  className="min-h-[42px] sm:min-h-0 text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 w-full sm:w-auto"
                 >
                   <option value="all">Tous sujets</option>
                   {CATEGORIES.map((c) => (
@@ -626,7 +626,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                  className="min-h-[42px] sm:min-h-0 text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#0c1631] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 w-full sm:w-auto"
                 >
                   <option value="all">Tous statuts</option>
                   {STATUSES.map((s) => (
@@ -640,7 +640,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
               <button
                 type="button"
                 onClick={handleOpenAddPrayer}
-                className="px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition"
+                className="min-h-[44px] sm:min-h-0 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span>Nouvelle Prière</span>
@@ -692,13 +692,13 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                   }`}
                 >
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <button
                           type="button"
                           onClick={() => handleToggleSelectPrayer(prayer.id)}
                           aria-label="Sélectionner cette prière"
-                          className="text-slate-400 hover:text-blue-600"
+                          className="min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-400 hover:text-blue-600"
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-blue-600" />
@@ -713,7 +713,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                         <span>{catObj?.label}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {prayer.isPrivate ? (
                           <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
                             <Lock className="w-3 h-3" /> Privée
@@ -821,7 +821,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                         type="button"
                         onClick={() => handleOpenEditPrayer(prayer)}
                         aria-label="Modifier"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                        className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -832,7 +832,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                           setDeleteType('prayer');
                         }}
                         aria-label="Supprimer"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600"
+                        className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -935,13 +935,13 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                   }`}
                 >
                   <div className="space-y-2.5">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => handleToggleSelectTestimony(testimony.id)}
                           aria-label="Sélectionner ce témoignage"
-                          className="text-slate-400 hover:text-blue-600"
+                          className="min-w-[34px] min-h-[34px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-slate-400 hover:text-blue-600"
                         >
                           {isSelected ? (
                             <CheckSquare className="w-4 h-4 text-blue-600" />
@@ -987,11 +987,11 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => handleShareTestimony(testimony)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition"
+                      className="min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition"
                     >
                       <Share2 className="w-3.5 h-3.5" />
                       <span>Partager sur les réseaux</span>
@@ -1003,7 +1003,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                         setDeletingId(testimony.id);
                         setDeleteType('testimony');
                       }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600"
+                      className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-red-600"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1145,11 +1145,11 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
             <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
               Confidentialité & Partage
             </span>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 min-[340px]:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => handleToggleShareable(false)}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition ${
+                className={`min-h-[42px] sm:min-h-0 py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition ${
                   prayerForm.isPrivate
                     ? 'bg-white dark:bg-[#0f2b5c] border-blue-600 text-blue-700 dark:text-white shadow-xs'
                     : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
@@ -1162,7 +1162,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
               <button
                 type="button"
                 onClick={() => handleToggleShareable(true)}
-                className={`py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition ${
+                className={`min-h-[42px] sm:min-h-0 py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition ${
                   !prayerForm.isPrivate
                     ? 'bg-white dark:bg-[#0f2b5c] border-blue-600 text-blue-700 dark:text-white shadow-xs'
                     : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
@@ -1174,7 +1174,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
             </div>
 
             {!prayerForm.isPrivate && (
-              <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2">
+              <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-slate-600 dark:text-slate-300">
                   <strong>{prayerForm.authorizedContactIds.length}</strong> personne(s) sélectionnée(s)
                 </div>
@@ -1250,7 +1250,7 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
             />
           </div>
 
-          <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+          <div className="max-h-[45dvh] sm:max-h-64 overflow-y-auto overscroll-contain space-y-1.5 pr-1">
             {filteredDirectoryContacts.map((c) => {
               const checked = prayerForm.authorizedContactIds.includes(c.id);
               return (
@@ -1419,13 +1419,13 @@ export const PrayerModule: React.FC<PrayerModuleProps> = ({
                   <video
                     src={testimonyMediaFile.previewUrl}
                     controls
-                    className="w-full max-h-40 rounded-lg bg-black"
+                    className="w-full max-h-[34dvh] sm:max-h-40 rounded-lg bg-black"
                   />
                 ) : (
                   <img
                     src={testimonyMediaFile.previewUrl}
                     alt="Aperçu"
-                    className="w-full max-h-40 object-cover rounded-lg"
+                    className="w-full max-h-[34dvh] sm:max-h-40 object-cover rounded-lg"
                   />
                 )}
                 <button

@@ -1784,8 +1784,15 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       const hw = box.w / 2 + 12;
       const hh = box.h / 2 + 12;
       const { lx, ly } = toLayerLocal(pt, selectedLayer);
+      const canvasRect = canvas?.getBoundingClientRect();
+      const canvasScaleFactor =
+        canvasRect && canvasRect.width > 0 ? dims.w / canvasRect.width : 1;
+      const handleHitRadius = Math.max(
+        34,
+        (e.pointerType === 'touch' ? 28 : 16) * canvasScaleFactor
+      );
 
-      if (Math.hypot(lx, ly - (-hh - 44)) <= 34) {
+      if (Math.hypot(lx, ly - (-hh - 44)) <= handleHitRadius) {
         try {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         } catch {
@@ -1807,7 +1814,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         [hw, hh],
         [-hw, hh],
       ];
-      if (corners.some(([cx, cy]) => Math.hypot(lx - cx, ly - cy) <= 34)) {
+      if (corners.some(([cx, cy]) => Math.hypot(lx - cx, ly - cy) <= handleHitRadius)) {
         try {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         } catch {
@@ -3865,7 +3872,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
           setFormatRatio(e.target.value as FormatRatio);
         }}
         aria-label="Format"
-        className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700"
+        className="shrink-0 min-h-[36px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700"
       >
         {Object.entries(FORMAT_DIMS).map(([k, v]) => (
           <option key={k} value={k}>
@@ -3877,7 +3884,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       <button
         type="button"
         onClick={() => setIsMultiSelectMode((m) => !m)}
-        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 border ${
+        className={`shrink-0 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 border whitespace-nowrap ${
           isMultiSelectMode
             ? 'bg-blue-700 border-blue-700 text-white'
             : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
@@ -3891,7 +3898,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         <button
           type="button"
           onClick={handleGroupSelected}
-          className="px-2.5 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold flex items-center gap-1"
+          className="shrink-0 min-h-[36px] px-2.5 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap"
         >
           <Group className="w-3.5 h-3.5" />
           <span>Grouper</span>
@@ -3902,7 +3909,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         <button
           type="button"
           onClick={handleUngroupSelected}
-          className="px-2.5 py-1.5 rounded-lg bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 text-xs font-bold flex items-center gap-1"
+          className="shrink-0 min-h-[36px] px-2.5 py-1.5 rounded-lg bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 text-xs font-bold flex items-center gap-1 whitespace-nowrap"
         >
           <Ungroup className="w-3.5 h-3.5" />
           <span>Dissocier</span>
@@ -3910,11 +3917,11 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       )}
 
       {selectedLayer?.kind === 'text' && (
-        <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2">
+        <div className="shrink-0 flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2">
           <button
             type="button"
             onClick={() => openInlineTextEditor(selectedLayer)}
-            className="px-2 py-1.5 rounded-lg bg-amber-400/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1"
+            className="min-h-[36px] px-2 py-1.5 rounded-lg bg-amber-400/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1 whitespace-nowrap"
           >
             <Edit3 className="w-3.5 h-3.5" />
             <span>Éditer</span>
@@ -3925,7 +3932,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
               pushUndoSnapshot();
               updateSelectedLayer({ bold: !selectedLayer.bold });
             }}
-            className={`w-8 h-8 rounded-lg font-extrabold text-xs ${
+            className={`min-w-[36px] min-h-[36px] rounded-lg font-extrabold text-xs ${
               selectedLayer.bold ? 'bg-blue-700 text-white' : 'bg-slate-100 dark:bg-slate-800'
             }`}
           >
@@ -3937,7 +3944,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
               pushUndoSnapshot();
               updateSelectedLayer({ italic: !selectedLayer.italic });
             }}
-            className={`w-8 h-8 rounded-lg italic font-serif font-bold text-xs ${
+            className={`min-w-[36px] min-h-[36px] rounded-lg italic font-serif font-bold text-xs ${
               selectedLayer.italic ? 'bg-blue-700 text-white' : 'bg-slate-100 dark:bg-slate-800'
             }`}
           >
@@ -3949,7 +3956,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
               pushUndoSnapshot();
               updateSelectedLayer({ underline: !selectedLayer.underline });
             }}
-            className={`w-8 h-8 rounded-lg underline font-bold text-xs ${
+            className={`min-w-[36px] min-h-[36px] rounded-lg underline font-bold text-xs ${
               selectedLayer.underline ? 'bg-blue-700 text-white' : 'bg-slate-100 dark:bg-slate-800'
             }`}
           >
@@ -3960,17 +3967,17 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             value={selectedLayer.color}
             onChange={(e) => updateSelectedLayer({ color: e.target.value })}
             aria-label="Couleur texte"
-            className="w-7 h-7 rounded cursor-pointer border border-slate-300"
+            className="w-8 h-8 rounded cursor-pointer border border-slate-300 shrink-0"
           />
         </div>
       )}
 
       {selectedLayer?.kind === 'image' && (
-        <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-2">
+        <div className="shrink-0 flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-2">
           <button
             type="button"
             onClick={() => setCropTargetLayerId(selectedLayer.id)}
-            className="px-2.5 py-1.5 rounded-lg bg-amber-400/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1"
+            className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-amber-400/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1 whitespace-nowrap"
           >
             <Crop className="w-3.5 h-3.5" />
             <span>Recadrer</span>
@@ -3978,7 +3985,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
           <button
             type="button"
             onClick={() => replaceImageInputRef.current?.click()}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold flex items-center gap-1"
+            className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold flex items-center gap-1 whitespace-nowrap"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Remplacer</span>
@@ -3987,31 +3994,31 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       )}
 
       {selectedLayer?.kind === 'shape' && (
-        <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-2">
+        <div className="shrink-0 flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-700 pl-2">
           <input
             type="color"
             value={selectedLayer.fillColor}
             onChange={(e) => updateSelectedLayer({ fillColor: e.target.value })}
             title="Couleur principale"
-            className="w-7 h-7 rounded cursor-pointer border border-slate-300"
+            className="w-8 h-8 rounded cursor-pointer border border-slate-300"
           />
           <input
             type="color"
             value={selectedLayer.secondaryColor || '#ffffff'}
             onChange={(e) => updateSelectedLayer({ secondaryColor: e.target.value })}
             title="Couleur secondaire"
-            className="w-7 h-7 rounded cursor-pointer border border-slate-300"
+            className="w-8 h-8 rounded cursor-pointer border border-slate-300"
           />
         </div>
       )}
 
       {selectedLayer && (
-        <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2 ml-auto">
+        <div className="shrink-0 flex items-center gap-1 border-l border-slate-200 dark:border-slate-700 pl-2 ml-auto">
           <button
             type="button"
             onClick={handleCopySelectedLayers}
             title="Copier (Ctrl+C)"
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <Copy className="w-3.5 h-3.5" />
           </button>
@@ -4019,7 +4026,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             type="button"
             onClick={duplicateSelectedLayers}
             title="Dupliquer (Ctrl+D)"
-            className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold"
+            className="min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold"
           >
             +1
           </button>
@@ -4027,7 +4034,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             type="button"
             onClick={deleteSelectedLayers}
             title="Supprimer"
-            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -4038,7 +4045,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         <button
           type="button"
           onClick={handlePasteCopiedLayers}
-          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold flex items-center gap-1"
+          className="shrink-0 min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold flex items-center gap-1 whitespace-nowrap"
         >
           <ClipboardPaste className="w-3.5 h-3.5" />
           <span>Coller</span>
@@ -4310,11 +4317,10 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             style={{
-              maxHeight: '58dvh',
               maxWidth: '100%',
               aspectRatio: `${dims.w} / ${dims.h}`,
             }}
-            className={`block w-auto h-auto touch-none ${
+            className={`block w-auto h-auto max-h-[42dvh] sm:max-h-[52dvh] lg:max-h-[58dvh] touch-none ${
               isPanMode ? 'cursor-grab active:cursor-grabbing' : isDrawMode ? 'cursor-crosshair' : 'cursor-default'
             }`}
           />
@@ -4542,7 +4548,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       <button
         type="button"
         onClick={() => handleDownload('png')}
-        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+        className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap"
       >
         <Download className="w-3.5 h-3.5" />
         <span>PNG</span>
@@ -4550,14 +4556,14 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       <button
         type="button"
         onClick={() => handleDownload('jpg')}
-        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold hidden sm:flex items-center gap-1 whitespace-nowrap"
+        className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold hidden sm:flex items-center gap-1 whitespace-nowrap"
       >
         <span>JPG</span>
       </button>
       <button
         type="button"
         onClick={() => handleDownload('pdf')}
-        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold flex items-center gap-1 whitespace-nowrap"
+        className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold flex items-center gap-1 whitespace-nowrap"
         title={pages.length > 1 ? `Exporter les ${pages.length} pages en PDF` : 'Exporter en PDF'}
       >
         <FileText className="w-3.5 h-3.5" />
@@ -4675,7 +4681,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
                 key={`${slideshowIndex}_${activeSlideTransition}`}
                 src={slideshowSlideUrls[slideshowIndex]}
                 alt={`Diapo ${slideshowIndex + 1}`}
-                className={`max-h-[58vh] w-auto object-contain rounded-xl shadow-2xl ${
+                className={`max-h-[44dvh] sm:max-h-[58vh] w-auto object-contain rounded-xl shadow-2xl ${
                   activeSlideTransition === 'zoom'
                     ? 'animate-in zoom-in-95 duration-300'
                     : activeSlideTransition === 'slide'
@@ -4732,7 +4738,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             <img
               src={previewDataUrl}
               alt={designTitle}
-              className="max-h-[68vh] mx-auto rounded-xl border border-slate-200 dark:border-slate-700"
+              className="max-h-[52dvh] sm:max-h-[68vh] mx-auto rounded-xl border border-slate-200 dark:border-slate-700"
             />
             <div className="flex justify-center gap-2">
               <button

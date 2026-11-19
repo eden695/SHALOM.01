@@ -369,7 +369,7 @@ export const UnifiedCalendarModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -379,7 +379,7 @@ export const UnifiedCalendarModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
-              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -527,11 +527,11 @@ export const UnifiedCalendarModule: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => handleShareEvent(item)}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 flex items-center gap-1"
+                      className="min-h-[38px] sm:min-h-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 flex items-center gap-1"
                       title="Partager cet événement sur les réseaux sociaux"
                     >
                       <Share2 className="w-3.5 h-3.5" />
@@ -543,7 +543,7 @@ export const UnifiedCalendarModule: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleToggleAccomplished(item.raw!)}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
+                          className={`min-h-[38px] sm:min-h-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
                             item.status === 'accompli'
                               ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-300'
                               : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -556,7 +556,7 @@ export const UnifiedCalendarModule: React.FC = () => {
                           type="button"
                           onClick={() => setDeletingId(item.raw!.id)}
                           aria-label="Supprimer ce moment"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500"
+                          className="min-w-[38px] min-h-[38px] sm:min-w-0 sm:min-h-0 flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-red-500"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -630,7 +630,7 @@ export const UnifiedCalendarModule: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold mb-1">Date *</label>
               <input
@@ -677,7 +677,7 @@ export const UnifiedCalendarModule: React.FC = () => {
 
           {/* Image or Video attachment for event */}
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-slate-700 dark:text-slate-300">
                 Image ou vidéo d’annonce (facultatif)
               </span>

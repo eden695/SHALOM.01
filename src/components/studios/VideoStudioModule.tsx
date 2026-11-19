@@ -1670,8 +1670,15 @@ export const VideoStudioModule: React.FC = () => {
       const dy = pt.y - cy;
       const localX = dx * cos - dy * sin;
       const localY = dx * sin + dy * cos;
+      const canvasRect = canvas?.getBoundingClientRect();
+      const canvasScaleFactor =
+        canvasRect && canvasRect.width > 0 ? dims.w / canvasRect.width : 1;
+      const handleHitRadius = Math.max(
+        24,
+        (e.pointerType === 'touch' ? 26 : 14) * canvasScaleFactor
+      );
 
-      if (Math.hypot(localX - 0, localY - (-boxH / 2 - 38)) <= 24) {
+      if (Math.hypot(localX - 0, localY - (-boxH / 2 - 38)) <= handleHitRadius) {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         pushHistory();
         dragActionRef.current = {
@@ -1689,7 +1696,7 @@ export const VideoStudioModule: React.FC = () => {
         return;
       }
 
-      if (Math.hypot(localX - (boxW / 2 + 8), localY - (boxH / 2 + 8)) <= 24) {
+      if (Math.hypot(localX - (boxW / 2 + 8), localY - (boxH / 2 + 8)) <= handleHitRadius) {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         pushHistory();
         dragActionRef.current = {
@@ -5021,12 +5028,12 @@ export const VideoStudioModule: React.FC = () => {
 
   // SELECTION TOOLBAR ABOVE CANVAS
   const selectionToolbar = (
-    <div className="flex flex-wrap items-center gap-1.5 w-full text-xs">
+    <div className="flex flex-nowrap lg:flex-wrap items-center gap-1.5 w-max lg:w-full text-xs">
       <button
         type="button"
         onClick={handleTogglePreviewPlay}
         disabled={totalDurationSec <= 0}
-        className={`min-h-[38px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 disabled:opacity-40 ${
+        className={`shrink-0 min-h-[38px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 whitespace-nowrap disabled:opacity-40 ${
           isPlayingPreview ? 'bg-rose-600 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'
         }`}
       >
@@ -5034,7 +5041,7 @@ export const VideoStudioModule: React.FC = () => {
         <span>{isPlayingPreview ? (isEn ? 'Stop' : 'Arrêter') : isEn ? 'Play' : 'Lire'}</span>
       </button>
 
-      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+      <div className="shrink-0 flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
         {(['9:16', '16:9', '1:1', '4:5'] as AspectMode[]).map((mode) => (
           <button
             key={mode}
@@ -5043,7 +5050,7 @@ export const VideoStudioModule: React.FC = () => {
               pushHistory();
               setAspectMode(mode);
             }}
-            className={`px-2 py-1 rounded-md text-[11px] font-bold ${
+            className={`min-h-[32px] px-2 py-1 rounded-md text-[11px] font-bold whitespace-nowrap ${
               aspectMode === mode
                 ? 'bg-white dark:bg-blue-700 text-blue-700 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-300'
@@ -5057,7 +5064,7 @@ export const VideoStudioModule: React.FC = () => {
       <button
         type="button"
         onClick={() => setSnapEnabled((s) => !s)}
-        className={`min-h-[36px] px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 ${
+        className={`shrink-0 min-h-[36px] min-w-[36px] px-2.5 py-1 rounded-lg font-semibold flex items-center justify-center gap-1 ${
           snapEnabled
             ? 'bg-amber-500 text-slate-950'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -5071,7 +5078,7 @@ export const VideoStudioModule: React.FC = () => {
         onClick={handleCopySelection}
         disabled={!selectedOverlayId && !selectedSceneId}
         title="Ctrl+C"
-        className="min-h-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
+        className="shrink-0 min-h-[36px] min-w-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center disabled:opacity-40"
       >
         <Copy className="w-3.5 h-3.5" />
       </button>
@@ -5081,7 +5088,7 @@ export const VideoStudioModule: React.FC = () => {
         onClick={handlePasteSelection}
         disabled={!copiedOverlay && !copiedScene}
         title="Ctrl+V"
-        className="min-h-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 disabled:opacity-40"
+        className="shrink-0 min-h-[36px] min-w-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center disabled:opacity-40"
       >
         <ClipboardPaste className="w-3.5 h-3.5" />
       </button>
@@ -5091,24 +5098,24 @@ export const VideoStudioModule: React.FC = () => {
         onClick={handleExportSnapshotPng}
         disabled={scenes.length === 0}
         title="Capture PNG"
-        className="min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold flex items-center gap-1 disabled:opacity-40"
+        className="shrink-0 min-h-[36px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold flex items-center gap-1 whitespace-nowrap disabled:opacity-40"
       >
         <Camera className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">PNG</span>
       </button>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="shrink-0 ml-auto flex items-center gap-1">
         <button
           type="button"
           onClick={() => setTimelineZoom((z) => Math.max(20, z - 10))}
-          className="min-h-[34px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="min-h-[36px] min-w-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
           onClick={() => setTimelineZoom((z) => Math.min(120, z + 10))}
-          className="min-h-[34px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="min-h-[36px] min-w-[36px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
@@ -5181,15 +5188,15 @@ export const VideoStudioModule: React.FC = () => {
       )}
 
       {/* Video Monitor Stage */}
-      <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-950 border border-slate-800 p-3 relative min-h-[260px]">
-        <div className="relative flex items-center justify-center max-h-[380px]">
+      <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-950 border border-slate-800 p-2.5 sm:p-3 relative min-h-[190px] sm:min-h-[260px]">
+        <div className="relative flex items-center justify-center max-h-[32dvh] sm:max-h-[380px]">
           <canvas
             ref={canvasRef}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={handleCanvasPointerUp}
             onPointerCancel={handleCanvasPointerUp}
-            className="max-h-[360px] max-w-full rounded-xl shadow-2xl border border-slate-800 touch-none cursor-move bg-black"
+            className="max-h-[30dvh] sm:max-h-[340px] lg:max-h-[360px] max-w-full rounded-xl shadow-2xl border border-slate-800 touch-none cursor-move bg-black"
           />
 
           {inlineEditTarget && (
@@ -5216,13 +5223,16 @@ export const VideoStudioModule: React.FC = () => {
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
           <span className="tabular-nums font-bold text-amber-400">
             {previewTimeSec.toFixed(1)}s / {totalDurationSec.toFixed(1)}s
           </span>
           <span className="flex items-center gap-1">
-            <Edit3 className="w-3 h-3" />
-            <span>
+            <Edit3 className="w-3 h-3 shrink-0" />
+            <span className="sm:hidden">
+              {isEn ? 'Double-tap text to edit' : 'Double-tap = éditer texte'}
+            </span>
+            <span className="hidden sm:inline">
               {isEn ? 'Double-tap text on canvas to edit inline' : 'Double-clic sur le texte pour éditer'}
             </span>
           </span>
@@ -5238,11 +5248,12 @@ export const VideoStudioModule: React.FC = () => {
         )}
 
         <div className="overflow-x-auto">
-          <div style={{ width: `${timelineWidthPx + 140}px` }} className="relative">
+          <div style={{ width: `${timelineWidthPx + 88}px` }} className="relative min-w-full">
             {/* Interactive Draggable Time Ruler */}
             <div className="flex border-b border-slate-800 bg-[#0b1734]">
-              <div className="w-[140px] shrink-0 px-3 py-2 border-r border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                Timeline ({aspectMode})
+              <div className="sticky left-0 z-30 bg-[#0b1734] w-[88px] sm:w-[140px] shrink-0 px-2 sm:px-3 py-2 border-r border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">
+                {aspectMode}
+                <span className="hidden sm:inline"> Timeline</span>
               </div>
               <div
                 ref={timelineTrackRef}
@@ -5280,9 +5291,9 @@ export const VideoStudioModule: React.FC = () => {
 
             {/* Lane 1: Scenes (Drag-and-drop reorder + Left & Right Interactive Trim Handles) */}
             <div className="flex border-b border-slate-800/80">
-              <div className="w-[140px] shrink-0 px-3 py-2.5 border-r border-slate-800 font-bold text-[11px] flex items-center gap-1.5">
-                <Film className="w-3.5 h-3.5 text-amber-400" />
-                <span>{isEn ? 'Scenes' : 'Scènes'}</span>
+              <div className="sticky left-0 z-30 bg-[#070f22] w-[88px] sm:w-[140px] shrink-0 px-2 sm:px-3 py-2.5 border-r border-slate-800 font-bold text-[10px] sm:text-[11px] flex items-center gap-1 sm:gap-1.5">
+                <Film className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">{isEn ? 'Scenes' : 'Scènes'}</span>
               </div>
               <div className="flex-1 relative h-14">
                 {sceneTimingMap.map((entry, idx) => (
@@ -5329,7 +5340,7 @@ export const VideoStudioModule: React.FC = () => {
                           origPlaybackRate: entry.scene.playbackRate || 1,
                         };
                       }}
-                      className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize touch-none"
+                      className="absolute left-0 top-0 bottom-0 w-6 sm:w-4 flex items-center justify-center cursor-ew-resize touch-none"
                     >
                       <div className="w-1 h-6 rounded-full bg-white/90" />
                     </div>
@@ -5380,7 +5391,7 @@ export const VideoStudioModule: React.FC = () => {
                           origPlaybackRate: entry.scene.playbackRate || 1,
                         };
                       }}
-                      className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize touch-none"
+                      className="absolute right-0 top-0 bottom-0 w-6 sm:w-4 flex items-center justify-center cursor-ew-resize touch-none"
                     >
                       <div className="w-1 h-6 rounded-full bg-white/90" />
                     </div>
@@ -5395,9 +5406,9 @@ export const VideoStudioModule: React.FC = () => {
 
             {/* Lane 2: Overlays (Drag Move + Interactive Left/Right Edge Trim Handles) */}
             <div className="flex border-b border-slate-800/80">
-              <div className="w-[140px] shrink-0 px-3 py-2.5 border-r border-slate-800 font-bold text-[11px] flex items-center gap-1.5">
-                <Shapes className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{isEn ? 'Overlays' : 'Calques'}</span>
+              <div className="sticky left-0 z-30 bg-[#070f22] w-[88px] sm:w-[140px] shrink-0 px-2 sm:px-3 py-2.5 border-r border-slate-800 font-bold text-[10px] sm:text-[11px] flex items-center gap-1 sm:gap-1.5">
+                <Shapes className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">{isEn ? 'Overlays' : 'Calques'}</span>
               </div>
               <div className="flex-1 relative h-12">
                 {overlays.map((ov) => (
@@ -5448,7 +5459,7 @@ export const VideoStudioModule: React.FC = () => {
                           origPlaybackRate: 1,
                         };
                       }}
-                      className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize touch-none"
+                      className="absolute left-0 top-0 bottom-0 w-6 sm:w-4 flex items-center justify-center cursor-ew-resize touch-none"
                     >
                       <div className="w-1 h-5 rounded-full bg-white/90" />
                     </div>
@@ -5469,7 +5480,7 @@ export const VideoStudioModule: React.FC = () => {
                           origPlaybackRate: 1,
                         };
                       }}
-                      className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize touch-none"
+                      className="absolute right-0 top-0 bottom-0 w-6 sm:w-4 flex items-center justify-center cursor-ew-resize touch-none"
                     >
                       <div className="w-1 h-5 rounded-full bg-white/90" />
                     </div>
@@ -5484,9 +5495,9 @@ export const VideoStudioModule: React.FC = () => {
 
             {/* Lane 3: Real Audio Waveforms + Interactive Edge Trimming */}
             <div className="flex">
-              <div className="w-[140px] shrink-0 px-3 py-2.5 border-r border-slate-800 font-bold text-[11px] flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-purple-400" />
-                <span>Audio</span>
+              <div className="sticky left-0 z-30 bg-[#070f22] w-[88px] sm:w-[140px] shrink-0 px-2 sm:px-3 py-2.5 border-r border-slate-800 font-bold text-[10px] sm:text-[11px] flex items-center gap-1 sm:gap-1.5">
+                <Music className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                <span className="truncate">Audio</span>
               </div>
               <div className="flex-1 relative h-14">
                 {audioTracks.map((tr) => {
@@ -5662,7 +5673,7 @@ export const VideoStudioModule: React.FC = () => {
                 src={exportedVideoUrl}
                 controls
                 playsInline
-                className="w-full max-h-80 rounded-xl bg-black"
+                className="w-full max-h-[44dvh] sm:max-h-80 rounded-xl bg-black"
               />
               <div className="flex flex-wrap gap-2">
                 <button
