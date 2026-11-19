@@ -1,5 +1,5 @@
 // Service Worker for SHALOM - Offline Christian Companion, Share Target Inbox & Safe Error Fallback
-const CACHE_NAME = 'shalom-cache-v14';
+const CACHE_NAME = 'shalom-cache-v15';
 const ASSETS_TO_CACHE = [
   './shalom_logo.jpg',
   './shalom_peace_light.jpg',

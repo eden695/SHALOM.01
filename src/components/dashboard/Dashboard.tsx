@@ -294,7 +294,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {
             id: 'studios',
             title: t('nav.studios'),
-            sub: isEn ? 'Design, Audio & Video' : 'Visuel, Audio & Vidéo',
+            sub: isEn ? 'Design, Slides, Video & Audio' : 'Visuel, Présentation, Vidéo & Audio',
             icon: Sparkles,
           },
           {
