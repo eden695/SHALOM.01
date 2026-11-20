@@ -92,6 +92,8 @@ import {
 } from '../../services/onlineStudioSearch';
 import { Modal } from '../common/Modal';
 import { StudioWorkspaceShell, StudioToolRailItem } from './shared/StudioWorkspaceShell';
+import { StudioHomeScreen } from './shared/StudioHomeScreen';
+import { HorizontalScrollRail } from './shared/HorizontalScrollRail';
 import { VectorPreviewSvg } from './shared/VectorPreviewSvg';
 import { WaveformClipView } from './shared/WaveformClipView';
 import { ShalomResourcesPanel } from './shared/ShalomResourcesPanel';
@@ -611,7 +613,8 @@ export const VideoStudioModule: React.FC = () => {
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
   const [selectedAudioTrackId, setSelectedAudioTrackId] = useState<string | null>(null);
-  const [activeToolTab, setActiveToolTab] = useState<VideoToolTab | null>('templates');
+  const [isHomeView, setIsHomeView] = useState(true);
+  const [activeToolTab, setActiveToolTab] = useState<VideoToolTab | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [showShalomFolderModal, setShowShalomFolderModal] = useState(false);
 
@@ -1953,6 +1956,49 @@ export const VideoStudioModule: React.FC = () => {
     previewRafRef.current = requestAnimationFrame(step);
   };
 
+  const handleStartBlankVideoProject = () => {
+    if (scenes.length > 0 || overlays.length > 0 || audioTracks.length > 0) pushHistory();
+    const blankSceneId = `scene_${Date.now()}_blank`;
+    setCurrentProjectId(null);
+    setProjectTitle(isEn ? 'Untitled Video Project' : 'Nouvelle vidéo SHALOM');
+    setAspectMode('9:16');
+    setCanvasBgColor('#090d1a');
+    setScenes([
+      {
+        id: blankSceneId,
+        kind: 'custom',
+        name: isEn ? 'Scene #1' : 'Scène #1',
+        durationSec: 4,
+        trimStartSec: 0,
+        trimEndSec: 4,
+        fitMode: 'cover',
+        kenBurns: false,
+        volume: 1,
+        playbackRate: 1,
+        transition: 'fade',
+        filter: 'none',
+        bgType: 'gradient',
+        bgColor: '#0f172a',
+        bgColor2: '#1e3a8a',
+        shape: 'none',
+        shapeColor: '#fbbf24',
+        text: isEn ? 'Your custom text here' : 'Votre texte ici',
+        textColor: '#ffffff',
+        fontSize: 42,
+        fontFamily: '"Outfit", sans-serif',
+      },
+    ]);
+    setOverlays([]);
+    setAudioTracks([]);
+    setSelectedSceneId(blankSceneId);
+    setSelectedOverlayId(null);
+    setSelectedAudioTrackId(null);
+    setPreviewTimeSec(0);
+    setActiveToolTab(null);
+    setIsHomeView(false);
+    setNotice(isEn ? 'New blank video timeline ready!' : 'Nouveau montage vierge prêt !');
+  };
+
   const applyVideoTemplate = async (tpl: VideoTemplateDef) => {
     pushHistory();
     const newScenes: VideoScene[] = tpl.scenes.map((s, idx) => ({
@@ -1963,6 +2009,7 @@ export const VideoStudioModule: React.FC = () => {
       ...o,
       id: `ov_${Date.now()}_${idx}`,
     }));
+    setCurrentProjectId(null);
     setAspectMode(tpl.aspect);
     setCanvasBgColor(tpl.bgColor);
     setScenes(newScenes);
@@ -1971,6 +2018,8 @@ export const VideoStudioModule: React.FC = () => {
     setSelectedSceneId(newScenes[0]?.id || null);
     setSelectedOverlayId(newOverlays[0]?.id || null);
     setPreviewTimeSec(0);
+    setActiveToolTab(null);
+    setIsHomeView(false);
     setNotice(
       isEn
         ? `Video template "${tpl.titleEn}" loaded onto timeline!`
@@ -2060,7 +2109,9 @@ export const VideoStudioModule: React.FC = () => {
         },
       ]);
       setSelectedSceneId(id);
-      setIsInspectorOpen(true);
+      setIsInspectorOpen(false);
+      setActiveToolTab(null);
+      setIsHomeView(false);
     } else {
       const video = await new Promise<HTMLVideoElement>((resolve, reject) => {
         const el = document.createElement('video');
@@ -2105,7 +2156,9 @@ export const VideoStudioModule: React.FC = () => {
         },
       ]);
       setSelectedSceneId(id);
-      setIsInspectorOpen(true);
+      setIsInspectorOpen(false);
+      setActiveToolTab(null);
+      setIsHomeView(false);
     }
   };
 
@@ -2133,7 +2186,9 @@ export const VideoStudioModule: React.FC = () => {
     setSelectedAudioTrackId(id);
     setSelectedOverlayId(null);
     setSelectedSceneId(null);
-    setIsInspectorOpen(true);
+    setIsInspectorOpen(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
   };
 
   const handleSaveOnlineMediaToShalom = async (item: OnlineMediaTrackResult) => {
@@ -2249,7 +2304,9 @@ export const VideoStudioModule: React.FC = () => {
     ]);
     setSelectedSceneId(id);
     setSelectedOverlayId(null);
-    setIsInspectorOpen(true);
+    setIsInspectorOpen(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
   };
 
   const handleImportMediaFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2378,7 +2435,9 @@ export const VideoStudioModule: React.FC = () => {
     ]);
     setSelectedOverlayId(id);
     setSelectedAudioTrackId(null);
-    setIsInspectorOpen(true);
+    setIsInspectorOpen(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
   };
 
   const addShapeElementOverlay = (shapeId: StudioVectorElementKind, label: string) => {
@@ -2406,7 +2465,9 @@ export const VideoStudioModule: React.FC = () => {
     ]);
     setSelectedOverlayId(id);
     setSelectedAudioTrackId(null);
-    setIsInspectorOpen(true);
+    setIsInspectorOpen(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
   };
 
   const handleUploadImageOverlay = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2442,7 +2503,9 @@ export const VideoStudioModule: React.FC = () => {
           },
         ]);
         setSelectedOverlayId(id);
-        setIsInspectorOpen(true);
+        setIsInspectorOpen(false);
+        setActiveToolTab(null);
+        setIsHomeView(false);
       };
       img.src = url;
     } catch (err) {
@@ -2701,7 +2764,9 @@ export const VideoStudioModule: React.FC = () => {
           const seen = new Set(prev.map((i) => i.id));
           return [...prev, ...res.items.filter((i) => !seen.has(i.id))];
         });
-        if (res.items.length === 0) {
+        if (res.networkError && res.items.length === 0) {
+          setOnlineVideoError(res.networkError);
+        } else if (res.items.length === 0) {
           setOnlineVideoError(
             isEn
               ? 'No clips or photos found for this query.'
@@ -3036,7 +3101,9 @@ export const VideoStudioModule: React.FC = () => {
       setSelectedOverlayId(id);
       setSelectedAudioTrackId(null);
       setSelectedSceneId(null);
-      setIsInspectorOpen(true);
+      setIsInspectorOpen(false);
+      setActiveToolTab(null);
+      setIsHomeView(false);
       setNotice(
         isEn
           ? `Added "${asset.title}" overlay onto timeline.`
@@ -3202,6 +3269,8 @@ export const VideoStudioModule: React.FC = () => {
     if (!proj.projectJson) return;
     try {
       await deserializeAndLoadVideoProject(proj.title, proj.projectJson, proj.id);
+      setActiveToolTab(null);
+      setIsHomeView(false);
       setNotice(isEn ? `Loaded "${proj.title}".` : `Projet « ${proj.title} » chargé !`);
     } catch {
       setNotice(isEn ? 'Could not reopen project.' : 'Impossible de rouvrir ce projet vidéo.');
@@ -3720,7 +3789,7 @@ export const VideoStudioModule: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {['all', 'Verset', 'Église', 'Témoignage'].map((cat) => (
               <button
                 key={cat}
@@ -3729,7 +3798,7 @@ export const VideoStudioModule: React.FC = () => {
                   setTemplateCategory(cat);
                   handleSearchOnlineTemplates(templateQuery, cat, 1);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${
+                className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap ${
                   templateCategory === cat
                     ? 'bg-blue-700 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -3738,7 +3807,7 @@ export const VideoStudioModule: React.FC = () => {
                 {cat === 'all' ? (isEn ? 'All' : 'Tous') : cat}
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
 
           {onlineStatusMsg && (
             <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
@@ -4147,7 +4216,7 @@ export const VideoStudioModule: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {['sunrise', 'clouds', 'ocean', 'flowers', 'candles', 'church'].map((tag) => (
               <button
                 key={tag}
@@ -4156,12 +4225,12 @@ export const VideoStudioModule: React.FC = () => {
                   setOnlineVideoQuery(tag);
                   handleSearchOnlineVideoMedia(tag, 1);
                 }}
-                className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold"
+                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold whitespace-nowrap"
               >
                 {tag}
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
 
           {onlineVideoError && (
             <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-[11px]">
@@ -5576,8 +5645,8 @@ export const VideoStudioModule: React.FC = () => {
   );
 
   const bottomBar = (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-      <div className="flex items-center gap-3 tabular-nums font-semibold text-slate-600 dark:text-slate-300">
+    <HorizontalScrollRail wrapOnDesktop innerClassName="justify-between w-full gap-2" className="text-xs">
+      <div className="flex items-center gap-2 sm:gap-3 tabular-nums font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap shrink-0">
         <span>{aspectMode}</span>
         <span>·</span>
         <span>{scenes.length} scène(s)</span>
@@ -5591,72 +5660,125 @@ export const VideoStudioModule: React.FC = () => {
         type="button"
         disabled={isExporting || scenes.length === 0}
         onClick={handleExportVideo}
-        className="min-h-[36px] px-3.5 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-bold flex items-center gap-1.5"
+        className="shrink-0 min-h-[36px] px-3.5 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-bold flex items-center gap-1.5 whitespace-nowrap"
       >
         {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Film className="w-3.5 h-3.5" />}
         <span>{isEn ? 'Render WebM Video' : 'Assembler & Exporter WebM'}</span>
       </button>
-    </div>
+    </HorizontalScrollRail>
   );
+
+  const hasActiveWork = scenes.length > 0 || overlays.length > 0 || audioTracks.length > 0;
+  const homeFeaturedTemplates = VIDEO_TEMPLATES.slice(0, 8).map((tpl) => ({
+    id: tpl.id,
+    kind: 'video' as const,
+    title: isEn ? tpl.titleEn : tpl.titleFr,
+    category: tpl.category,
+    subtitle: isEn ? tpl.descEn : tpl.descFr,
+    aspect: tpl.aspect,
+    bgColor1: tpl.bgColor,
+    scenes: tpl.scenes as unknown as Array<Record<string, unknown>>,
+    overlays: tpl.overlays as unknown as Array<Record<string, unknown>>,
+    onSelectPreview: () => setPreviewingTemplate(tpl),
+  }));
 
   return (
     <>
-      <StudioWorkspaceShell
-        projectTitle={projectTitle}
-        onProjectTitleChange={setProjectTitle}
-        statusLine={`${aspectMode} · ${scenes.length} scène(s) · ${totalDurationSec.toFixed(1)}s`}
-        canUndo={undoStack.length > 0}
-        canRedo={redoStack.length > 0}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onPreview={() => setShowPreviewModal(true)}
-        onSaveProject={handleSaveEditableProject}
-        isSavingProject={isSavingProject}
-        onOpenShalomFolder={async () => {
-          try {
-            const outcome = await chooseShalomDownloadDirectory();
-            if (outcome.folderLabel) {
-              setNotice(
-                isEn
-                  ? `DOSSIER SHALOM linked: ${outcome.folderLabel}`
-                  : `Dossier SHALOM lié : ${outcome.folderLabel}`
-              );
-            }
-            if (outcome.requiresVirtualExplorer) {
+      {isHomeView ? (
+        <StudioHomeScreen
+          kind="video"
+          isEn={isEn}
+          hasActiveWork={hasActiveWork}
+          activeProjectTitle={projectTitle}
+          activeSummary={`${aspectMode} · ${scenes.length} scène(s) · ${totalDurationSec.toFixed(1)}s`}
+          onCreateBlank={handleStartBlankVideoProject}
+          onContinueWork={() => {
+            setActiveToolTab(null);
+            setIsHomeView(false);
+          }}
+          onOpenTemplatesTool={() => {
+            setIsHomeView(false);
+            setActiveToolTab('templates');
+          }}
+          onOpenLibraryTool={() => {
+            setIsHomeView(false);
+            setActiveToolTab('media');
+          }}
+          libraryLabel={isEn ? 'Media & Scenes' : 'Médias & Scènes'}
+          onOpenShalomResources={() => {
+            setIsHomeView(false);
+            setActiveToolTab('shalom');
+          }}
+          onOpenAllSaved={() => {
+            setIsHomeView(false);
+            setActiveToolTab('projects');
+          }}
+          savedProjects={savedVideoProjects}
+          onOpenSavedProject={handleLoadSavedProject}
+          featuredTemplates={homeFeaturedTemplates}
+        />
+      ) : (
+        <StudioWorkspaceShell
+          projectTitle={projectTitle}
+          onProjectTitleChange={setProjectTitle}
+          statusLine={`${aspectMode} · ${scenes.length} scène(s) · ${totalDurationSec.toFixed(1)}s`}
+          canUndo={undoStack.length > 0}
+          canRedo={redoStack.length > 0}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onReturnHome={() => {
+            setActiveToolTab(null);
+            setIsHomeView(true);
+          }}
+          onPreview={() => setShowPreviewModal(true)}
+          onSaveProject={handleSaveEditableProject}
+          isSavingProject={isSavingProject}
+          onOpenShalomFolder={async () => {
+            try {
+              const outcome = await chooseShalomDownloadDirectory();
+              if (outcome.folderLabel) {
+                setNotice(
+                  isEn
+                    ? `DOSSIER SHALOM linked: ${outcome.folderLabel}`
+                    : `Dossier SHALOM lié : ${outcome.folderLabel}`
+                );
+              }
+              if (outcome.requiresVirtualExplorer) {
+                setShowShalomFolderModal(true);
+              }
+            } catch {
               setShowShalomFolderModal(true);
             }
-          } catch {
-            setShowShalomFolderModal(true);
-          }
-        }}
-        onShare={handleShareWithoutSaving}
-        onPrimaryExport={handleExportVideo}
-        primaryExportLabel="WebM"
-        isExporting={isExporting}
-        toolItems={toolItems}
-        activeToolId={activeToolTab}
-        onSelectTool={(id) => setActiveToolTab(id as VideoToolTab | null)}
-        toolDrawerContent={renderToolDrawerContent()}
-        selectionToolbar={selectionToolbar}
-        centerStage={centerStage}
-        bottomBar={bottomBar}
-        inspectorTitle={
-          selectedOverlay
-            ? isEn
-              ? 'Overlay Properties'
-              : 'Propriétés Calque'
-            : selectedAudioTrack
+          }}
+          onShare={handleShareWithoutSaving}
+          onPrimaryExport={handleExportVideo}
+          primaryExportLabel="WebM"
+          isExporting={isExporting}
+          toolItems={toolItems}
+          activeToolId={activeToolTab}
+          onSelectTool={(id) => setActiveToolTab(id as VideoToolTab | null)}
+          toolDrawerContent={renderToolDrawerContent()}
+          selectionToolbar={selectionToolbar}
+          centerStage={centerStage}
+          bottomBar={bottomBar}
+          inspectorTitle={
+            selectedOverlay
               ? isEn
-                ? 'Audio Properties'
-                : 'Propriétés Audio'
-              : isEn
-                ? 'Scene Properties'
-                : 'Propriétés Scène'
-        }
-        inspectorContent={renderInspectorContent()}
-        isInspectorOpen={isInspectorOpen}
-        onToggleInspector={() => setIsInspectorOpen((v) => !v)}
-      />
+                ? 'Overlay Properties'
+                : 'Propriétés Calque'
+              : selectedAudioTrack
+                ? isEn
+                  ? 'Audio Properties'
+                  : 'Propriétés Audio'
+                : isEn
+                  ? 'Scene Properties'
+                  : 'Propriétés Scène'
+          }
+          inspectorContent={renderInspectorContent()}
+          isInspectorOpen={isInspectorOpen}
+          onToggleInspector={() => setIsInspectorOpen((v) => !v)}
+        />
+      )}
 
       {/* Preview & Export Modal */}
       <Modal

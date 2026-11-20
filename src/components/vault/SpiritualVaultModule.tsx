@@ -29,6 +29,12 @@ import { useShalomDB } from '../../hooks/useShalomDB';
 import { dbService, STORES } from '../../services/db';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useModuleSubView } from '../../contexts/NavigationContext';
+import {
+  smartFetch,
+  classifyConnectivityError,
+  getConnectivitySnapshot,
+  getUserFriendlyNetworkMessage,
+} from '../../services/connectivity';
 import { VaultDocument } from '../../types';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -122,7 +128,7 @@ async function fetchWikisourceBookText(
     const url = `${endpoint}?action=parse&page=${encodeURIComponent(
       title
     )}&prop=text&format=json&origin=*`;
-    const res = await fetch(url);
+    const res = await smartFetch(url, { mode: 'cors' }, { timeoutMs: 12000, retries: 1, serviceName: 'Wikisource' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as {
       parse?: { title?: string; text?: { '*': string } };
@@ -613,27 +619,49 @@ export const SpiritualVaultModule: React.FC = () => {
       return;
     }
 
+    const langCode: 'fr' | 'en' = isEn ? 'en' : 'fr';
+    if (!getConnectivitySnapshot().isOnline) {
+      setErrorBanner(getUserFriendlyNetworkMessage('offline', langCode));
+      return;
+    }
+
     setOnlineSearchQuery('');
     setLastOnlineQuery(q);
     setIsSearchingOnline(true);
     setErrorBanner(null);
 
     try {
-      const wsPromise = fetch(
+      const wsPromise = smartFetch(
         `https://${onlineSearchLang}.wikisource.org/w/api.php?action=opensearch&search=${encodeURIComponent(
           q
-        )}&limit=6&format=json&origin=*`
-      )
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
+        )}&limit=6&format=json&origin=*`,
+        { mode: 'cors' },
+        { timeoutMs: 9000, retries: 1, serviceName: 'Wikisource', lang: langCode }
+      ).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      });
 
-      const olPromise = fetch(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8`
-      )
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
+      const olPromise = smartFetch(
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8`,
+        { mode: 'cors' },
+        { timeoutMs: 9000, retries: 1, serviceName: 'Open Library', lang: langCode }
+      ).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      });
 
-      const [wsData, olData] = await Promise.all([wsPromise, olPromise]);
+      const [wsSettled, olSettled] = await Promise.allSettled([wsPromise, olPromise]);
+      const wsData = wsSettled.status === 'fulfilled' ? wsSettled.value : null;
+      const olData = olSettled.status === 'fulfilled' ? olSettled.value : null;
+      const anyServiceResponded =
+        wsSettled.status === 'fulfilled' || olSettled.status === 'fulfilled';
+      const firstFailure =
+        wsSettled.status === 'rejected'
+          ? wsSettled.reason
+          : olSettled.status === 'rejected'
+            ? olSettled.reason
+            : null;
 
       const combined: OnlineBookEntry[] = [];
 
@@ -717,18 +745,18 @@ export const SpiritualVaultModule: React.FC = () => {
 
       setOnlineResults(combined);
       if (combined.length === 0) {
-        setErrorBanner(
-          isEn
-            ? `No books found for « ${q} ». Try another title or search directly on Google Books / Play Store.`
-            : `Aucun livre trouvé pour « ${q} ». Essayez un autre titre ou recherchez sur Google Livres / Play Store.`
-        );
+        if (!anyServiceResponded && firstFailure) {
+          setErrorBanner(classifyConnectivityError(firstFailure, langCode).message);
+        } else {
+          setErrorBanner(
+            isEn
+              ? `No books found for « ${q} ». Try another title or search directly on Google Books / Play Store.`
+              : `Aucun livre trouvé pour « ${q} ». Essayez un autre titre ou recherchez sur Google Livres / Play Store.`
+          );
+        }
       }
-    } catch {
-      setErrorBanner(
-        isEn
-          ? 'Unable to search books online right now. Check your internet connection.'
-          : 'Impossible de rechercher des livres en ligne pour le moment. Vérifiez votre connexion internet.'
-      );
+    } catch (err) {
+      setErrorBanner(classifyConnectivityError(err, isEn ? 'en' : 'fr').message);
     } finally {
       setIsSearchingOnline(false);
     }
@@ -814,12 +842,8 @@ export const SpiritualVaultModule: React.FC = () => {
           : `« ${book.title} » enregistré dans votre Coffre Spirituel !`
       );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erreur réseau';
-      setErrorBanner(
-        isEn
-          ? `Could not download book inside app (${msg}). Use the direct link or import the downloaded file.`
-          : `Impossible de télécharger le texte dans l’application (${msg}). Utilisez le lien direct ou importez le fichier.`
-      );
+      const classified = classifyConnectivityError(err, isEn ? 'en' : 'fr');
+      setErrorBanner(classified.message);
     } finally {
       setDownloadingBookId(null);
       setDownloadProgressMsg(null);

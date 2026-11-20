@@ -229,23 +229,23 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>{isEn ? 'Back to templates' : 'Retour aux modèles'}</span>
-          </button>
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-nowrap overflow-x-auto no-scrollbar items-center gap-2 pb-0.5 sm:pb-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 whitespace-nowrap transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{isEn ? 'Back to templates' : 'Retour aux modèles'}</span>
+            </button>
 
-          <div className="flex flex-wrap items-center gap-2">
             {onSaveToShalom && (
               <button
                 type="button"
                 disabled={template.isSavingOffline}
                 onClick={() => onSaveToShalom(template)}
-                className="min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 transition"
+                className="shrink-0 min-h-[44px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 whitespace-nowrap transition"
               >
                 {template.isSavedOffline ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -263,15 +263,15 @@ export const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                 </span>
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={() => onUseTemplate(template)}
-              className="min-h-[44px] px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-extrabold flex items-center gap-2 shadow-sm transition"
-            >
-              <span>{isEn ? 'Use this template' : 'Utiliser ce modèle'}</span>
-            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => onUseTemplate(template)}
+            className="w-full sm:w-auto shrink-0 min-h-[44px] px-5 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-sm whitespace-nowrap transition"
+          >
+            <span>{isEn ? 'Use this template' : 'Utiliser ce modèle'}</span>
+          </button>
         </div>
       </div>
     </Modal>

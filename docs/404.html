@@ -18,11 +18,8 @@
     <link rel="icon" type="image/jpeg" href="./shalom_logo.jpg" />
     <link rel="apple-touch-icon" href="./icon.png" />
     <link rel="manifest" href="./manifest.json" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-DkwcHEIP.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-C4la-fMo.css">
+    <script type="module" crossorigin src="./assets/index-D664CH92.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CbKXTtb8.css">
   </head>
   <body class="bg-slate-50 dark:bg-[#070e20] text-slate-900 dark:text-slate-100 min-h-dvh overflow-x-clip antialiased">
     <div id="root"></div>
@@ -46,30 +43,113 @@
               .catch(function () {});
           }
         }
+
+        var bootFailureKind = null;
+        var bootFailureHint = '';
+
+        function triggerSingleAssetRecovery() {
+          if (navigator.onLine === false) return false;
+          try {
+            if (sessionStorage.getItem('shalom_asset_recover')) return false;
+            sessionStorage.setItem('shalom_asset_recover', '1');
+          } catch (e) {
+            return false;
+          }
+          var base = location.pathname || './';
+          location.replace(base + '?shalom_v=' + Date.now());
+          return true;
+        }
+
+        window.addEventListener(
+          'error',
+          function (evt) {
+            if (window.__SHALOM_BOOTED__) return;
+            var target = evt && evt.target;
+            if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+              var src = target.src || target.href || '';
+              if (src.indexOf('fonts.googleapis.com') !== -1 || src.indexOf('fonts.gstatic.com') !== -1) {
+                return; // External fonts are optional; never block offline startup
+              }
+              if (src.indexOf('assets/') !== -1 || src.indexOf('main.tsx') !== -1) {
+                bootFailureKind = navigator.onLine === false ? 'offline' : 'bundle';
+                bootFailureHint = src.split('/').pop() || '';
+                triggerSingleAssetRecovery();
+              }
+            } else if (evt && evt.error) {
+              bootFailureKind = 'runtime';
+              bootFailureHint = (evt.error && evt.error.message) || '';
+            }
+          },
+          true
+        );
+
         window.setTimeout(function () {
           if (window.__SHALOM_BOOTED__) return;
           var root = document.getElementById('root');
           if (!root || root.childElementCount > 0) return;
+
+          var isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+          var subLabel = isOffline
+            ? '« Mode hors ligne »'
+            : bootFailureKind === 'runtime'
+              ? '« Incident au démarrage »'
+              : '« Un instant de paix… »';
+          var message = isOffline
+            ? '« SHALOM n’a pas encore enregistré tous ses fichiers hors ligne sur cet appareil. Connectez-vous une seule fois pour activer le mode 100 % hors ligne. »'
+            : bootFailureKind === 'runtime'
+              ? '« Une erreur technique est survenue pendant l’ouverture. Vos données personnelles restent protégées dans votre appareil. »'
+              : '« Le chargement de cette version a été interrompu ou le réseau est très lent. Appuyez sur Réessayer ou Actualiser le cache pour lancer SHALOM. »';
+
           root.innerHTML =
             '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:\'Plus Jakarta Sans\',system-ui,sans-serif;background:radial-gradient(circle at 50% 25%, #13294b 0%, #071128 60%, #040916 100%);color:#ffffff;text-align:center;">' +
-            '<div style="max-width:400px;width:100%;background:rgba(10,23,51,0.92);border:1px solid rgba(212,175,55,0.35);border-radius:24px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,0.65);">' +
+            '<div style="max-width:410px;width:100%;background:rgba(10,23,51,0.92);border:1px solid rgba(212,175,55,0.35);border-radius:24px;padding:28px;box-shadow:0 24px 64px rgba(0,0,0,0.65);">' +
             '<img src="./shalom_logo.jpg" alt="SHALOM" style="width:72px;height:72px;border-radius:16px;object-fit:cover;border:2px solid rgba(212,175,55,0.65);margin:0 auto 12px;display:block;" />' +
             '<h1 style="margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:0.2em;color:#f4d778;">SHALOM</h1>' +
-            '<p style="margin:0 0 16px;font-size:14px;font-style:italic;color:#dbeafe;">« Un instant de paix… »</p>' +
+            '<p style="margin:0 0 16px;font-size:14px;font-style:italic;color:#dbeafe;">' + subLabel + '</p>' +
             '<img src="./shalom_peace_light.jpg" alt="" onerror="this.style.display=\'none\'" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,0.12);margin-bottom:16px;" />' +
-            '<p style="margin:0 0 14px;font-size:13px;line-height:1.55;color:#e2e8f0;">« Nous n\'arrivons pas à établir la connexion pour le moment. Vérifiez votre connexion Internet et réessayez dans quelques instants. »</p>' +
+            '<p style="margin:0 0 14px;font-size:13px;line-height:1.55;color:#e2e8f0;">' + message + '</p>' +
+            (bootFailureHint
+              ? '<p style="margin:0 0 14px;font-size:11px;color:#94a3b8;word-break:break-word;">' +
+                bootFailureHint.replace(/</g, '&lt;') +
+                '</p>'
+              : '') +
             '<p style="margin:0 0 18px;padding:10px 14px;border-radius:14px;background:rgba(15,37,79,0.75);border:1px solid rgba(212,175,55,0.28);font-family:Georgia,serif;font-style:italic;font-size:13px;color:#fde68a;">« Je vous laisse la paix, je vous donne ma paix. » — Jean 14:27.</p>' +
+            '<div style="display:flex;flex-direction:column;gap:10px;">' +
             '<button id="shalom-recover-btn" type="button" style="width:100%;min-height:46px;background:linear-gradient(90deg,#c89d28,#dfb848,#c89d28);color:#071128;border:0;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:800;letter-spacing:0.08em;cursor:pointer;">RÉESSAYER</button>' +
-            '</div></div>';
+            '<button id="shalom-home-btn" type="button" style="width:100%;min-height:44px;background:rgba(255,255,255,0.08);color:#f8fafc;border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;">RETOUR À SHALOM</button>' +
+            '</div></div></div>';
+
           var btn = document.getElementById('shalom-recover-btn');
           if (btn) {
             btn.onclick = function () {
+              try {
+                sessionStorage.removeItem('shalom_asset_recover');
+              } catch (e) {}
               location.reload();
             };
           }
-        }, 15000);
+          var homeBtn = document.getElementById('shalom-home-btn');
+          if (homeBtn) {
+            homeBtn.onclick = function () {
+              try {
+                sessionStorage.removeItem('shalom_asset_recover');
+              } catch (e) {}
+              if ('caches' in window && navigator.onLine !== false) {
+                caches
+                  .keys()
+                  .then(function (keys) {
+                    return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                  })
+                  .finally(function () {
+                    location.replace('./');
+                  });
+              } else {
+                location.replace('./');
+              }
+            };
+          }
+        }, 12000);
       })();
     </script>
   </body>
 </html>
-

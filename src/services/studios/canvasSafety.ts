@@ -125,12 +125,25 @@ export function createSafeAudioContext(): AudioContext | null {
 }
 
 export function classifyAppError(error: unknown): 'offline' | 'network' | 'runtime' {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return 'offline';
+  if (
+    error &&
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name?: string }).name === 'ConnectivityError'
+  ) {
+    const kind = (error as { kind?: string }).kind;
+    return kind === 'offline' ? 'offline' : 'network';
   }
   const msg = error instanceof Error ? `${error.name} ${error.message}` : String(error || '');
-  if (/ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module|NetworkError|ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED/i.test(msg)) {
-    return 'network';
+  if (
+    /ChunkLoadError|Loading chunk|Failed to fetch dynamically imported module|Importing a module script failed|NetworkError|ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|Failed to fetch/i.test(
+      msg
+    )
+  ) {
+    return typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'network';
+  }
+  if (typeof console !== 'undefined' && typeof console.error === 'function') {
+    console.error('[SHALOM Runtime Error]', error);
   }
   return 'runtime';
 }

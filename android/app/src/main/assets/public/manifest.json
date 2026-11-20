@@ -1,0 +1,64 @@
+{
+  "id": "./",
+  "name": "SHALOM - Plateforme Chrétienne",
+  "short_name": "SHALOM",
+  "description": "La foi au quotidien, la paix dans le cœur. Compagnon chrétien personnel hors-ligne pour vos prières, témoignages et méditations.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070e20",
+  "theme_color": "#0f2b5c",
+  "categories": ["lifestyle", "productivity", "utilities"],
+  "share_target": {
+    "action": "./?share-target=1",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "application/pdf",
+            "application/epub+zip",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/*",
+            "image/*",
+            "audio/*",
+            "video/*",
+            ".pdf",
+            ".epub",
+            ".txt",
+            ".md",
+            ".doc",
+            ".docx"
+          ]
+        }
+      ]
+    }
+  },
+  "icons": [
+    {
+      "src": "./shalom_logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "./shalom_logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -20,6 +20,7 @@ import { ContactsModule } from './components/contacts/ContactsModule';
 import { MessagingModule } from './components/messaging/MessagingModule';
 import { SettingsModule } from './components/settings/SettingsModule';
 import { LockModal } from './components/security/LockModal';
+import { ConnectivityStatusBanner } from './components/common/ConnectivityStatusBanner';
 import {
   getSecurityConfig,
   isAppSessionUnlocked,
@@ -245,6 +246,8 @@ function ShalomAppShell({
           onGoBack={goBack}
           onGoHome={goHome}
         />
+
+        <ConnectivityStatusBanner />
 
         {activeReminderBanner && (
           <div className="max-w-5xl w-full mx-auto px-4 sm:px-6 pt-3">

@@ -1,6 +1,13 @@
 // Client-first CORS-enabled Online Search Engine for SHALOM Studios (Design, Audio, Video)
 // Works seamlessly on Android APK (WebView/Website2APK), GitHub Pages static hosting, and Express server.
 
+import {
+  smartFetch,
+  classifyConnectivityError,
+  getConnectivitySnapshot,
+  getUserFriendlyNetworkMessage,
+} from './connectivity';
+
 export type StudioKind = 'design' | 'presentation' | 'video' | 'audio';
 export type CreativeAssetType = 'elements' | 'images' | 'backgrounds';
 
@@ -118,16 +125,10 @@ async function fetchWithTimeout(
   options: RequestInit = {},
   timeoutMs = 10000
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    window.clearTimeout(timer);
-  }
+  return smartFetch(url, options, {
+    timeoutMs,
+    retries: 1,
+  });
 }
 
 async function postJsonIfExpressAvailable<T>(
@@ -342,15 +343,12 @@ export async function searchOnlineAssetsClient(params: {
   const page = Math.max(1, Number(params.page) || 1);
   const lang = params.lang === 'en' ? 'en' : 'fr';
 
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (!getConnectivitySnapshot().isOnline) {
     return {
       assets: [],
       page,
       hasMore: false,
-      networkError:
-        lang === 'en'
-          ? 'No Internet connection detected. Connect to Wi-Fi or mobile data to search online.'
-          : 'Aucune connexion Internet détectée. Activez le Wi-Fi ou les données mobiles pour rechercher en ligne.',
+      networkError: getUserFriendlyNetworkMessage('offline', lang),
     };
   }
 
@@ -382,7 +380,7 @@ export async function searchOnlineAssetsClient(params: {
   const seen = new Set<string>();
   const combined: OnlineCreativeAsset[] = [];
   let anySucceeded = false;
-  let lastError = '';
+  let lastReason: unknown = null;
 
   for (const res of settled) {
     if (res.status === 'fulfilled') {
@@ -395,7 +393,7 @@ export async function searchOnlineAssetsClient(params: {
         }
       }
     } else {
-      lastError = res.reason instanceof Error ? res.reason.message : 'Erreur réseau';
+      lastReason = res.reason;
     }
   }
 
@@ -408,14 +406,12 @@ export async function searchOnlineAssetsClient(params: {
   }
 
   if (!anySucceeded && combined.length === 0) {
+    const classified = classifyConnectivityError(lastReason, lang);
     return {
       assets: [],
       page,
       hasMore: false,
-      networkError:
-        lang === 'en'
-          ? `Unable to reach online libraries (${lastError || 'network error'}).`
-          : `Impossible de joindre les bibliothèques en ligne (${lastError || 'erreur réseau'}). Vérifiez votre accès Internet.`,
+      networkError: classified.message,
     };
   }
 
@@ -1353,7 +1349,7 @@ export async function searchOnlineTemplatesClient<T = Record<string, unknown>>(p
   }
 
   let onlineEnriched: Array<Record<string, unknown>> = [];
-  if (studioType === 'design' && query.length >= 2 && navigator.onLine !== false) {
+  if (studioType === 'design' && query.length >= 2 && getConnectivitySnapshot().isOnline) {
     try {
       // Enrich search with real online Wikimedia photos styled as Canva verse cards!
       const wm = await fetchWikimediaImagesDirect(query, page, 'backgrounds');
@@ -1441,7 +1437,7 @@ export async function searchOnlineTemplatesClient<T = Record<string, unknown>>(p
   return {
     templates: merged as unknown as T[],
     hasMore: true,
-    sourceMode: navigator.onLine === false ? 'offline-catalog' : 'online-catalog',
+    sourceMode: getConnectivitySnapshot().isOnline ? 'online-catalog' : 'offline-catalog',
   };
 }
 
@@ -1464,14 +1460,11 @@ export async function searchOnlineMediaLibrary(params: {
   networkError?: string;
 }> {
   const { mediaKind, query, page = 1, lang = 'fr' } = params;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+  if (!getConnectivitySnapshot().isOnline) {
     return {
       items: [],
       hasMore: false,
-      networkError:
-        lang === 'en'
-          ? 'No Internet connection detected.'
-          : 'Aucune connexion Internet détectée. Connectez-vous pour rechercher en ligne.',
+      networkError: getUserFriendlyNetworkMessage('offline', lang),
     };
   }
 
@@ -1526,10 +1519,7 @@ export async function searchOnlineMediaLibrary(params: {
       return {
         items: [],
         hasMore: false,
-        networkError:
-          err instanceof Error
-            ? `Impossible de rechercher les sons en ligne (${err.message}).`
-            : 'Erreur réseau lors de la recherche audio en ligne.',
+        networkError: classifyConnectivityError(err, lang).message,
       };
     }
   } else {
@@ -1540,7 +1530,10 @@ export async function searchOnlineMediaLibrary(params: {
 
     try {
       const [vidRes, imgRes] = await Promise.allSettled([
-        fetchWithTimeout(wmVidUrl, { mode: 'cors' }, 10000).then((r) => r.json()),
+        fetchWithTimeout(wmVidUrl, { mode: 'cors' }, 10000).then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        }),
         fetchWikimediaImagesDirect(query, page, 'images'),
       ]);
 
@@ -1589,6 +1582,14 @@ export async function searchOnlineMediaLibrary(params: {
         }
       }
 
+      if (vidRes.status === 'rejected' && imgRes.status === 'rejected') {
+        return {
+          items: [],
+          hasMore: false,
+          networkError: classifyConnectivityError(imgRes.reason || vidRes.reason, lang).message,
+        };
+      }
+
       return {
         items,
         hasMore: items.length >= 6,
@@ -1597,10 +1598,7 @@ export async function searchOnlineMediaLibrary(params: {
       return {
         items: [],
         hasMore: false,
-        networkError:
-          err instanceof Error
-            ? `Impossible de rechercher les médias vidéo en ligne (${err.message}).`
-            : 'Erreur réseau lors de la recherche vidéo en ligne.',
+        networkError: classifyConnectivityError(err, lang).message,
       };
     }
   }

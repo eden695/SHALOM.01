@@ -80,6 +80,8 @@ import { StudioWorkspaceShell, StudioToolRailItem } from './shared/StudioWorkspa
 import { WaveformClipView } from './shared/WaveformClipView';
 import { ShalomResourcesPanel } from './shared/ShalomResourcesPanel';
 import { TemplatePreviewCard } from './shared/TemplatePreviewCard';
+import { HorizontalScrollRail } from './shared/HorizontalScrollRail';
+import { StudioHomeScreen } from './shared/StudioHomeScreen';
 import {
   TemplatePreviewModal,
   PreviewModalTemplateData,
@@ -724,8 +726,9 @@ export const AudioStudioModule: React.FC = () => {
   const [scriptFontSize, setScriptFontSize] = useState(14);
   const [scriptStyle, setScriptStyle] = useState<AudioScriptStyle>(DEFAULT_SCRIPT_STYLE);
 
-  // StudioWorkspaceShell tabs & inspector
-  const [activeToolTab, setActiveToolTab] = useState<AudioToolTab | null>('templates');
+  // StudioWorkspaceShell tabs & inspector (opens on Studio Home Screen; drawers closed)
+  const [isHomeView, setIsHomeView] = useState(true);
+  const [activeToolTab, setActiveToolTab] = useState<AudioToolTab | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [showShalomFolderModal, setShowShalomFolderModal] = useState(false);
 
@@ -1318,6 +1321,9 @@ export const AudioStudioModule: React.FC = () => {
     try {
       await deserializeAndLoadProject(draft.title || 'Brouillon Audio', draft.projectJson, null);
       setRecoverableDraft(false);
+      setActiveToolTab(null);
+      setIsHomeView(false);
+      setIsInspectorOpen(false);
       setNotice(
         isEn ? 'Previous audio session restored.' : 'Brouillon audio restauré automatiquement !'
       );
@@ -1376,6 +1382,9 @@ export const AudioStudioModule: React.FC = () => {
     };
     setClips((prev) => [...prev, item]);
     setSelectedClipIds([id]);
+    setActiveToolTab(null);
+    setIsHomeView(false);
+    setIsInspectorOpen(false);
   };
 
   const decodeBlobToClip = async (
@@ -1389,6 +1398,23 @@ export const AudioStudioModule: React.FC = () => {
     const buffer = await ctx.decodeAudioData(arr.slice(0));
     pushHistory();
     addBufferAsClip(buffer, name, targetTrackId, undefined, 1.0, assetKey);
+  };
+
+  const handleStartBlankAudioProject = () => {
+    setCurrentProjectId(null);
+    setProjectTitle(isEn ? 'Untitled Audio Project' : 'Nouveau projet audio');
+    setTracks(DEFAULT_TRACKS.map((t) => ({ ...t })));
+    setSelectedTrackId('track_1');
+    setClips([]);
+    setSelectedClipIds([]);
+    setMarkers([]);
+    setScriptText('');
+    setPlayheadSec(0);
+    setUndoStack([]);
+    setRedoStack([]);
+    setActiveToolTab(null);
+    setIsInspectorOpen(false);
+    setIsHomeView(false);
   };
 
   const handleApplyTemplate = async (tpl: AudioTemplateDef) => {
@@ -1414,6 +1440,7 @@ export const AudioStudioModule: React.FC = () => {
           removeSilence: false,
         };
       });
+      setCurrentProjectId(null);
       setTracks(nextTracks);
       if (nextTracks[0]) setSelectedTrackId(nextTracks[0].id);
       setClips(nextClips);
@@ -1421,6 +1448,9 @@ export const AudioStudioModule: React.FC = () => {
       setScriptText(isEn ? tpl.scriptEn : tpl.scriptFr);
       setProjectTitle(isEn ? tpl.titleEn : tpl.titleFr);
       setSelectedClipIds(nextClips[0] ? [nextClips[0].id] : []);
+      setActiveToolTab(null);
+      setIsHomeView(false);
+      setIsInspectorOpen(false);
       setNotice(
         isEn
           ? `Template "${tpl.titleEn}" loaded onto timeline!`
@@ -1781,7 +1811,9 @@ export const AudioStudioModule: React.FC = () => {
           const seen = new Set(prev.map((i) => i.id));
           return [...prev, ...res.items.filter((i) => !seen.has(i.id))];
         });
-        if (res.items.length === 0) {
+        if (res.networkError && res.items.length === 0) {
+          setOnlineAudioError(res.networkError);
+        } else if (res.items.length === 0) {
           setOnlineAudioError(
             isEn
               ? 'No audio files found for this search.'
@@ -2370,6 +2402,9 @@ export const AudioStudioModule: React.FC = () => {
     if (!proj.projectJson) return;
     try {
       await deserializeAndLoadProject(proj.title, proj.projectJson, proj.id);
+      setActiveToolTab(null);
+      setIsHomeView(false);
+      setIsInspectorOpen(false);
       setNotice(
         isEn
           ? `Project "${proj.title}" opened!`
@@ -2579,7 +2614,7 @@ export const AudioStudioModule: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {['all', 'Verset', 'Méditation', 'Église', 'Louange'].map((cat) => (
               <button
                 key={cat}
@@ -2588,7 +2623,7 @@ export const AudioStudioModule: React.FC = () => {
                   setTemplateCategory(cat);
                   handleSearchOnlineTemplates(templateQuery, cat, 1);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition ${
                   templateCategory === cat
                     ? 'bg-blue-700 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -2597,7 +2632,7 @@ export const AudioStudioModule: React.FC = () => {
                 {cat === 'all' ? (isEn ? 'All' : 'Tous') : cat}
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
 
           {onlineStatusMsg && (
             <div className="text-[11px] font-medium text-blue-700 dark:text-blue-400">
@@ -2809,7 +2844,7 @@ export const AudioStudioModule: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {['piano', 'harp', 'choir', 'bell', 'rain', 'organ'].map((tag) => (
               <button
                 key={tag}
@@ -2818,12 +2853,12 @@ export const AudioStudioModule: React.FC = () => {
                   setOnlineAudioQuery(tag);
                   handleSearchOnlineAudio(tag, 1);
                 }}
-                className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-[11px] font-semibold"
+                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-[11px] font-semibold whitespace-nowrap"
               >
                 {tag}
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
 
           {onlineAudioError && (
             <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-[11px]">
@@ -2947,12 +2982,12 @@ export const AudioStudioModule: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-1">
+                  <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
                     <button
                       type="button"
                       disabled={isBusy}
                       onClick={() => handleInsertOnlineAudio(item)}
-                      className="flex-1 min-h-[38px] px-2 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-bold text-[11px] flex items-center justify-center gap-1"
+                      className="shrink-0 flex-1 min-h-[38px] px-2.5 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-bold text-[11px] flex items-center justify-center gap-1 whitespace-nowrap"
                     >
                       {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                       <span>{isEn ? 'Insert' : 'Piste'}</span>
@@ -2961,7 +2996,7 @@ export const AudioStudioModule: React.FC = () => {
                       type="button"
                       disabled={isSaving}
                       onClick={() => handleSaveOnlineAudioToShalom(item)}
-                      className="min-h-[38px] px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] flex items-center gap-1"
+                      className="shrink-0 min-h-[38px] px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] flex items-center gap-1 whitespace-nowrap"
                     >
                       {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookmarkPlus className="w-3 h-3" />}
                       <span>SHALOM</span>
@@ -2971,7 +3006,7 @@ export const AudioStudioModule: React.FC = () => {
                       disabled={isBusy}
                       onClick={() => handleDownloadOnlineAudio(item)}
                       title="Télécharger"
-                      className="min-h-[38px] px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                      className="shrink-0 min-h-[38px] px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
@@ -2980,11 +3015,11 @@ export const AudioStudioModule: React.FC = () => {
                       disabled={isBusy}
                       onClick={() => handleShareOnlineAudioDirect(item)}
                       title="Partager sans enregistrer"
-                      className="min-h-[38px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white"
+                      className="shrink-0 min-h-[38px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white"
                     >
                       <Share2 className="w-3.5 h-3.5" />
                     </button>
-                  </div>
+                  </HorizontalScrollRail>
                 </div>
               );
             })}
@@ -3006,11 +3041,15 @@ export const AudioStudioModule: React.FC = () => {
     if (activeToolTab === 'script') {
       return (
         <div className="space-y-3 text-xs">
-          <div className="flex flex-wrap items-center gap-1 p-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <HorizontalScrollRail
+            wrapOnDesktop
+            innerClassName="gap-1 p-1.5"
+            className="rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+          >
             <button
               type="button"
               onClick={() => setScriptStyle((s) => ({ ...s, bold: !s.bold }))}
-              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+              className={`shrink-0 min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
                 scriptStyle.bold ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
               title="Gras"
@@ -3020,7 +3059,7 @@ export const AudioStudioModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setScriptStyle((s) => ({ ...s, italic: !s.italic }))}
-              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+              className={`shrink-0 min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
                 scriptStyle.italic ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
               title="Italique"
@@ -3030,18 +3069,18 @@ export const AudioStudioModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setScriptStyle((s) => ({ ...s, underline: !s.underline }))}
-              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+              className={`shrink-0 min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
                 scriptStyle.underline ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
               title="Souligné"
             >
               <Underline className="w-3.5 h-3.5" />
             </button>
-            <span className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-0.5" />
+            <span className="shrink-0 h-4 w-px bg-slate-300 dark:bg-slate-700 mx-0.5" />
             <button
               type="button"
               onClick={() => setScriptStyle((s) => ({ ...s, align: 'left' }))}
-              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+              className={`shrink-0 min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
                 scriptStyle.align === 'left' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
             >
@@ -3050,7 +3089,7 @@ export const AudioStudioModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setScriptStyle((s) => ({ ...s, align: 'center' }))}
-              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+              className={`shrink-0 min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
                 scriptStyle.align === 'center' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
             >
@@ -3059,7 +3098,7 @@ export const AudioStudioModule: React.FC = () => {
             <button
               type="button"
               onClick={() => setScriptStyle((s) => ({ ...s, align: 'right' }))}
-              className={`min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
+              className={`shrink-0 min-w-[34px] min-h-[34px] rounded-lg flex items-center justify-center ${
                 scriptStyle.align === 'right' ? 'bg-blue-700 text-white' : 'text-slate-600 dark:text-slate-300'
               }`}
             >
@@ -3068,7 +3107,7 @@ export const AudioStudioModule: React.FC = () => {
             <select
               value={scriptFontSize}
               onChange={(e) => setScriptFontSize(Number(e.target.value))}
-              className="ml-auto px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold"
+              className="shrink-0 ml-auto px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold"
             >
               {[12, 14, 16, 18, 22].map((sz) => (
                 <option key={sz} value={sz}>
@@ -3076,7 +3115,7 @@ export const AudioStudioModule: React.FC = () => {
                 </option>
               ))}
             </select>
-          </div>
+          </HorizontalScrollRail>
           <textarea
             value={scriptText}
             onChange={(e) => setScriptText(e.target.value)}
@@ -3428,13 +3467,13 @@ export const AudioStudioModule: React.FC = () => {
           <span className="block text-[11px] font-semibold text-slate-500 mb-1">
             {isEn ? 'Playback Speed' : 'Vitesse'}
           </span>
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {[0.75, 0.9, 1.0, 1.15, 1.3].map((rate) => (
               <button
                 key={rate}
                 type="button"
                 onClick={() => updateClip(selectedClip.id, { playbackRate: rate })}
-                className={`px-2 py-1 rounded-lg font-bold tabular-nums ${
+                className={`shrink-0 px-2.5 py-1.5 rounded-lg font-bold tabular-nums whitespace-nowrap ${
                   selectedClip.playbackRate === rate
                     ? 'bg-blue-700 text-white'
                     : 'bg-slate-100 dark:bg-slate-800'
@@ -3443,7 +3482,7 @@ export const AudioStudioModule: React.FC = () => {
                 {rate}x
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
         </div>
 
         <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-100 dark:border-slate-800">
@@ -3502,7 +3541,7 @@ export const AudioStudioModule: React.FC = () => {
         className="shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-40"
       >
         <Scissors className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">{isEn ? 'Split' : 'Scinder'}</span>
+        <span>{isEn ? 'Split' : 'Scinder'}</span>
       </button>
 
       <button
@@ -3512,7 +3551,7 @@ export const AudioStudioModule: React.FC = () => {
         className="shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center gap-1 whitespace-nowrap disabled:opacity-40"
       >
         <Copy className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">{isEn ? 'Duplicate' : 'Dupliquer'}</span>
+        <span>{isEn ? 'Duplicate' : 'Dupliquer'}</span>
       </button>
 
       <button
@@ -3556,7 +3595,7 @@ export const AudioStudioModule: React.FC = () => {
         }`}
       >
         <CheckSquare className="w-3.5 h-3.5" />
-        <span className="hidden md:inline">{isEn ? 'Multi' : 'Multi'}</span>
+        <span>{isEn ? 'Multi' : 'Multi'}</span>
       </button>
 
       <button
@@ -3577,7 +3616,7 @@ export const AudioStudioModule: React.FC = () => {
         className="shrink-0 min-h-[38px] min-w-[38px] px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold flex items-center justify-center gap-1 whitespace-nowrap"
       >
         <Flag className="w-3.5 h-3.5 text-amber-500" />
-        <span className="hidden xl:inline">{isEn ? 'Cue' : 'Repère'}</span>
+        <span>{isEn ? 'Cue' : 'Repère'}</span>
       </button>
 
       <div className="shrink-0 ml-auto flex items-center gap-1">
@@ -3604,7 +3643,7 @@ export const AudioStudioModule: React.FC = () => {
           className="min-h-[36px] px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1 whitespace-nowrap"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{isEn ? 'Track' : 'Piste'}</span>
+          <span>{isEn ? 'Track' : 'Piste'}</span>
         </button>
       </div>
     </div>
@@ -3974,8 +4013,11 @@ export const AudioStudioModule: React.FC = () => {
   );
 
   const bottomBar = (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-      <div className="flex items-center gap-3 tabular-nums font-semibold text-slate-600 dark:text-slate-300">
+    <HorizontalScrollRail
+      wrapOnDesktop
+      innerClassName="items-center justify-between w-full gap-2 text-xs"
+    >
+      <div className="shrink-0 flex items-center gap-2.5 tabular-nums font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
         <span>
           {isEn ? 'Playhead' : 'Curseur'} : {playheadSec.toFixed(2)}s
         </span>
@@ -3984,15 +4026,17 @@ export const AudioStudioModule: React.FC = () => {
           {isEn ? 'Duration' : 'Durée'} : {totalProjectDuration.toFixed(2)}s
         </span>
         <span>·</span>
-        <span>{clips.length} {isEn ? 'clip(s)' : 'extrait(s)'}</span>
+        <span>
+          {clips.length} {isEn ? 'clip(s)' : 'extrait(s)'}
+        </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="shrink-0 flex items-center gap-1.5">
         <button
           type="button"
           disabled={isRendering || clips.length === 0}
           onClick={() => handleMixAndExport('mp3')}
-          className="min-h-[36px] px-3 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-bold flex items-center gap-1.5"
+          className="shrink-0 min-h-[36px] px-3 py-1 rounded-lg bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-bold flex items-center gap-1.5 whitespace-nowrap"
         >
           {isRendering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Music className="w-3.5 h-3.5" />}
           <span>{isEn ? 'Export MP3' : 'Exporter MP3'}</span>
@@ -4001,61 +4045,115 @@ export const AudioStudioModule: React.FC = () => {
           type="button"
           disabled={isRendering || clips.length === 0}
           onClick={() => handleMixAndExport('wav')}
-          className="min-h-[36px] px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white font-bold flex items-center gap-1.5"
+          className="shrink-0 min-h-[36px] px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white font-bold flex items-center gap-1.5 whitespace-nowrap"
         >
           <Download className="w-3.5 h-3.5" />
           <span>{isEn ? 'Export WAV' : 'Exporter WAV'}</span>
         </button>
       </div>
-    </div>
+    </HorizontalScrollRail>
   );
 
   return (
     <>
-      <StudioWorkspaceShell
-        projectTitle={projectTitle}
-        onProjectTitleChange={setProjectTitle}
-        statusLine={`${tracks.length} pistes · ${totalProjectDuration.toFixed(1)}s`}
-        canUndo={undoStack.length > 0}
-        canRedo={redoStack.length > 0}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onPreview={() => setShowPreviewModal(true)}
-        onSaveProject={handleSaveEditableProject}
-        isSavingProject={isSavingProject}
-        onOpenShalomFolder={async () => {
-          try {
-            const outcome = await chooseShalomDownloadDirectory();
-            if (outcome.folderLabel) {
-              setNotice(
-                isEn
-                  ? `DOSSIER SHALOM linked: ${outcome.folderLabel}`
-                  : `Dossier SHALOM lié : ${outcome.folderLabel}`
-              );
-            }
-            if (outcome.requiresVirtualExplorer) {
+      {isHomeView ? (
+        <StudioHomeScreen
+          kind="audio"
+          isEn={isEn}
+          hasActiveWork={clips.length > 0 || scriptText.trim().length > 0 || markers.length > 0}
+          activeProjectTitle={projectTitle}
+          activeSummary={`${tracks.length} ${isEn ? 'track(s)' : 'piste(s)'} · ${clips.length} ${
+            isEn ? 'clip(s)' : 'extrait(s)'
+          } · ${totalProjectDuration.toFixed(1)}s`}
+          onCreateBlank={handleStartBlankAudioProject}
+          onContinueWork={() => {
+            setActiveToolTab(null);
+            setIsInspectorOpen(false);
+            setIsHomeView(false);
+          }}
+          onOpenTemplatesTool={() => {
+            setIsHomeView(false);
+            setActiveToolTab('templates');
+          }}
+          onOpenLibraryTool={() => {
+            setIsHomeView(false);
+            setActiveToolTab('record');
+          }}
+          libraryLabel={isEn ? 'Mic & Voice Recorder' : 'Micro & Voix'}
+          onOpenShalomResources={() => {
+            setIsHomeView(false);
+            setActiveToolTab('shalom');
+          }}
+          onOpenAllSaved={() => {
+            setIsHomeView(false);
+            setActiveToolTab('projects');
+          }}
+          savedProjects={savedAudioProjects}
+          onOpenSavedProject={handleLoadSavedProject}
+          featuredTemplates={AUDIO_TEMPLATES.slice(0, 8).map((tpl) => ({
+            id: tpl.id,
+            title: isEn ? tpl.titleEn : tpl.titleFr,
+            category: tpl.category,
+            subtitle: `${tpl.tracks.length} pistes · ${tpl.synthAdditions.length} clips`,
+            kind: 'audio' as const,
+            badgeColor: tpl.badgeColor,
+            tracks: tpl.tracks,
+            synthAdditions: tpl.synthAdditions,
+            markers: tpl.markers,
+            onSelectPreview: () => setPreviewingTemplate(tpl),
+          }))}
+        />
+      ) : (
+        <StudioWorkspaceShell
+          projectTitle={projectTitle}
+          onProjectTitleChange={setProjectTitle}
+          statusLine={`${tracks.length} pistes · ${totalProjectDuration.toFixed(1)}s`}
+          onReturnHome={() => {
+            setActiveToolTab(null);
+            setIsInspectorOpen(false);
+            setIsHomeView(true);
+          }}
+          canUndo={undoStack.length > 0}
+          canRedo={redoStack.length > 0}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onPreview={() => setShowPreviewModal(true)}
+          onSaveProject={handleSaveEditableProject}
+          isSavingProject={isSavingProject}
+          onOpenShalomFolder={async () => {
+            try {
+              const outcome = await chooseShalomDownloadDirectory();
+              if (outcome.folderLabel) {
+                setNotice(
+                  isEn
+                    ? `DOSSIER SHALOM linked: ${outcome.folderLabel}`
+                    : `Dossier SHALOM lié : ${outcome.folderLabel}`
+                );
+              }
+              if (outcome.requiresVirtualExplorer) {
+                setShowShalomFolderModal(true);
+              }
+            } catch {
               setShowShalomFolderModal(true);
             }
-          } catch {
-            setShowShalomFolderModal(true);
-          }
-        }}
-        onShare={() => handleShareWithoutSaving('mp3')}
-        onPrimaryExport={() => handleMixAndExport('mp3')}
-        primaryExportLabel="MP3"
-        isExporting={isRendering}
-        toolItems={toolItems}
-        activeToolId={activeToolTab}
-        onSelectTool={(id) => setActiveToolTab(id as AudioToolTab | null)}
-        toolDrawerContent={renderToolDrawerContent()}
-        selectionToolbar={selectionToolbar}
-        centerStage={centerStage}
-        bottomBar={bottomBar}
-        inspectorTitle={isEn ? 'Clip Settings' : 'Réglages extrait'}
-        inspectorContent={renderInspectorContent()}
-        isInspectorOpen={isInspectorOpen}
-        onToggleInspector={() => setIsInspectorOpen((v) => !v)}
-      />
+          }}
+          onShare={() => handleShareWithoutSaving('mp3')}
+          onPrimaryExport={() => handleMixAndExport('mp3')}
+          primaryExportLabel="MP3"
+          isExporting={isRendering}
+          toolItems={toolItems}
+          activeToolId={activeToolTab}
+          onSelectTool={(id) => setActiveToolTab(id as AudioToolTab | null)}
+          toolDrawerContent={renderToolDrawerContent()}
+          selectionToolbar={selectionToolbar}
+          centerStage={centerStage}
+          bottomBar={bottomBar}
+          inspectorTitle={isEn ? 'Clip Settings' : 'Réglages extrait'}
+          inspectorContent={renderInspectorContent()}
+          isInspectorOpen={isInspectorOpen}
+          onToggleInspector={() => setIsInspectorOpen((v) => !v)}
+        />
+      )}
 
       {/* Final Mix Preview & Export Modal */}
       <Modal

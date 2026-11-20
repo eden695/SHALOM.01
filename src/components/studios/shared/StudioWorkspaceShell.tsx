@@ -9,7 +9,9 @@ import {
   X,
   FolderOpen,
   SlidersHorizontal,
+  Home,
 } from 'lucide-react';
+import { HorizontalScrollRail } from './HorizontalScrollRail';
 
 export interface StudioToolRailItem {
   id: string;
@@ -27,6 +29,7 @@ interface StudioWorkspaceShellProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onReturnHome?: () => void;
   onPreview?: () => void;
   onSaveProject: () => void;
   isSavingProject?: boolean;
@@ -60,6 +63,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  onReturnHome,
   onPreview,
   onSaveProject,
   isSavingProject = false,
@@ -88,10 +92,23 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#081024] shadow-sm overflow-hidden">
       {/* 1. COMPACT TOP PROJECT BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2 bg-slate-50/90 dark:bg-[#0c1631] border-b border-slate-200 dark:border-slate-800">
-        {/* Left: Editable title + status + undo/redo */}
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-          <div className="min-w-[110px] flex-1 max-w-[240px] sm:max-w-[300px]">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-2.5 sm:px-3 py-2 bg-slate-50/90 dark:bg-[#0c1631] border-b border-slate-200 dark:border-slate-800">
+        {/* Left: Return Home + Editable title + status + undo/redo */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 lg:flex-1">
+          {onReturnHome && (
+            <button
+              type="button"
+              onClick={onReturnHome}
+              title="Accueil du studio"
+              aria-label="Accueil du studio"
+              className="min-w-[42px] min-h-[42px] lg:min-w-[36px] lg:min-h-[36px] px-2 flex items-center justify-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#081024] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition shrink-0"
+            >
+              <Home className="w-4 h-4 text-blue-700 dark:text-blue-400" />
+              <span className="hidden sm:inline">Accueil</span>
+            </button>
+          )}
+
+          <div className="min-w-0 flex-1 max-w-full lg:max-w-[300px]">
             <input
               type="text"
               value={projectTitle}
@@ -114,7 +131,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
               disabled={!canUndo}
               title="Annuler (Ctrl+Z)"
               aria-label="Annuler"
-              className="min-w-[44px] min-h-[44px] lg:min-w-[36px] lg:min-h-[36px] flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#081024] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition"
+              className="min-w-[42px] min-h-[42px] lg:min-w-[36px] lg:min-h-[36px] flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#081024] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition"
             >
               <Undo2 className="w-4 h-4" />
             </button>
@@ -124,29 +141,33 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
               disabled={!canRedo}
               title="Rétablir (Ctrl+Y)"
               aria-label="Rétablir"
-              className="min-w-[44px] min-h-[44px] lg:min-w-[36px] lg:min-h-[36px] flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#081024] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition"
+              className="min-w-[42px] min-h-[42px] lg:min-w-[36px] lg:min-h-[36px] flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#081024] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition"
             >
               <Redo2 className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Right: Workspace actions */}
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+        {/* Right: Horizontally scrollable workspace actions on mobile (all actions reachable, never hidden!) */}
+        <HorizontalScrollRail
+          wrapOnDesktop
+          className="lg:shrink-0"
+          fadeClassName="from-slate-50 via-slate-50/90 dark:from-[#0c1631] dark:via-[#0c1631]/90"
+        >
           {extraTopActions}
 
           {onToggleInspector && inspectorContent && (
             <button
               type="button"
               onClick={onToggleInspector}
-              className={`min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition whitespace-nowrap ${
+              className={`shrink-0 min-h-[40px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition whitespace-nowrap ${
                 isInspectorOpen
                   ? 'bg-blue-700 border-blue-700 text-white'
                   : 'bg-white dark:bg-[#081024] border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden xl:inline">{inspectorTitle || 'Propriétés'}</span>
+              <span>{inspectorTitle || 'Propriétés'}</span>
             </button>
           )}
 
@@ -155,10 +176,10 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
               type="button"
               onClick={onPreview}
               title="Aperçu plein écran"
-              className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#081024] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap"
+              className="shrink-0 min-h-[40px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#081024] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Aperçu</span>
+              <span>Aperçu</span>
             </button>
           )}
 
@@ -167,7 +188,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
               type="button"
               onClick={onOpenShalomFolder}
               title="Ouvrir DOSSIER SHALOM"
-              className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#081024] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold hidden md:flex items-center gap-1.5 whitespace-nowrap"
+              className="shrink-0 min-h-[40px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#081024] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap"
             >
               <FolderOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>Dossier</span>
@@ -178,7 +199,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
             type="button"
             onClick={onSaveProject}
             disabled={isSavingProject}
-            className="min-h-[44px] lg:min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-50"
+            className="shrink-0 min-h-[40px] lg:min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{isSavingProject ? '...' : 'Enregistrer'}</span>
@@ -188,10 +209,10 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
             <button
               type="button"
               onClick={onShare}
-              className="min-h-[44px] lg:min-h-[38px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap"
+              className="shrink-0 min-h-[40px] lg:min-h-[38px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap"
             >
               <Share2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Partager</span>
+              <span>Partager</span>
             </button>
           )}
 
@@ -202,13 +223,13 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
                   type="button"
                   onClick={onPrimaryExport}
                   disabled={isExporting}
-                  className="min-h-[44px] lg:min-h-[38px] px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-50"
+                  className="shrink-0 min-h-[40px] lg:min-h-[38px] px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>{isExporting ? 'Export...' : primaryExportLabel}</span>
                 </button>
               )}
-        </div>
+        </HorizontalScrollRail>
       </div>
 
       {/* 2. MAIN WORKSPACE AREA */}
@@ -272,8 +293,8 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
         {/* Central Canvas / Stage + Contextual Selection Toolbar + Bottom Strip */}
         <div className="flex-1 min-w-0 flex flex-col bg-slate-100/80 dark:bg-[#050b19]">
           {selectionToolbar && (
-            <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white/95 dark:bg-[#0c1631]/95 border-b border-slate-200 dark:border-slate-800 flex flex-nowrap overflow-x-auto no-scrollbar lg:flex-wrap items-center gap-1.5 backdrop-blur-xs">
-              {selectionToolbar}
+            <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white/95 dark:bg-[#0c1631]/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur-xs">
+              <HorizontalScrollRail wrapOnDesktop>{selectionToolbar}</HorizontalScrollRail>
             </div>
           )}
 
@@ -312,7 +333,11 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
       </div>
 
       {/* 3. MOBILE THUMB-REACHABLE BOTTOM TOOL BAR (< lg) */}
-      <div className="lg:hidden flex items-center gap-1 px-2 py-1.5 bg-slate-50 dark:bg-[#0c1631] border-t border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
+      <HorizontalScrollRail
+        className="lg:hidden px-2 py-1.5 bg-slate-50 dark:bg-[#0c1631] border-t border-slate-200 dark:border-slate-800"
+        innerClassName="gap-1"
+        fadeClassName="from-slate-50 via-slate-50/90 dark:from-[#0c1631] dark:via-[#0c1631]/90"
+      >
         {toolItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeToolId === item.id;
@@ -347,7 +372,7 @@ export const StudioWorkspaceShell: React.FC<StudioWorkspaceShellProps> = ({
             <span>Réglages</span>
           </button>
         )}
-      </div>
+      </HorizontalScrollRail>
 
       {/* 4. MOBILE SLIDE-UP BOTTOM-SHEET DRAWER FOR TOOLS OR INSPECTOR (< lg) */}
       {((activeTool && toolDrawerContent) || (isInspectorOpen && inspectorContent)) && (

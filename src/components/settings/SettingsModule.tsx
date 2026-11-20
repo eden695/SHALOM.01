@@ -37,6 +37,8 @@ import { dbService, STORES } from '../../services/db';
 import { useShalomDB } from '../../hooks/useShalomDB';
 import { useLanguage, WORLD_LANGUAGES } from '../../contexts/LanguageContext';
 import { useModuleSubView } from '../../contexts/NavigationContext';
+import { useConnectivity } from '../../hooks/useConnectivity';
+import { smartFetch } from '../../services/connectivity';
 import { Modal } from '../common/Modal';
 import { downloadBlobToDevice } from '../../services/fileTransfer';
 import {
@@ -130,9 +132,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   const [showUsageTips, setShowUsageTips] = useState<boolean>(() => getUsageTipsEnabled());
 
   // About / Connection / Update / Legal Modals State
-  const [isOnline, setIsOnline] = useState<boolean>(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
+  const { isOnline, retryConnection } = useConnectivity();
   const [updateCheckStatus, setUpdateCheckStatus] = useState<
     'idle' | 'checking' | 'up-to-date' | 'available' | 'offline' | 'error'
   >('idle');
@@ -169,16 +169,6 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
     }
     dbService.getStorageEstimate().then(setStorageStats);
   }, [userProfile]);
-
-  useEffect(() => {
-    const syncConnection = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', syncConnection);
-    window.addEventListener('offline', syncConnection);
-    return () => {
-      window.removeEventListener('online', syncConnection);
-      window.removeEventListener('offline', syncConnection);
-    };
-  }, []);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -442,16 +432,18 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   };
 
   const handleCheckForUpdates = async () => {
-    if (!navigator.onLine) {
+    setUpdateCheckStatus('checking');
+    setUpdateCheckMessage('Vérification de la connexion et du serveur en cours...');
+
+    const reachable = await retryConnection();
+    if (!reachable && !navigator.onLine) {
       setUpdateCheckStatus('offline');
       setUpdateCheckMessage(
-        'Connexion Internet requise pour vérifier la disponibilité d’une nouvelle version.'
+        'Pas de connexion Internet. Cette fonctionnalité nécessite une connexion.'
       );
       return;
     }
 
-    setUpdateCheckStatus('checking');
-    setUpdateCheckMessage('Vérification auprès du serveur en cours...');
     try {
       let hasNewSw = false;
       if ('serviceWorker' in navigator) {
@@ -470,7 +462,11 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
 
       let hasNewHtmlBundle = false;
       try {
-        const res = await fetch(`./index.html?check=${Date.now()}`, { cache: 'no-store' });
+        const res = await smartFetch(
+          `./index.html?check=${Date.now()}`,
+          { cache: 'no-store' },
+          { timeoutMs: 7000, retries: 0, serviceName: 'Serveur SHALOM' }
+        );
         if (res.ok) {
           const html = await res.text();
           const remoteMatches = Array.from(html.matchAll(/assets\/index-[A-Za-z0-9_-]+\.js/g)).map(
@@ -489,7 +485,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           }
         }
       } catch {
-        // ignore fetch issue if local dev or offline
+        // ignore fetch issue if offline
       }
 
       if (hasNewSw || hasNewHtmlBundle) {
@@ -505,7 +501,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       }
     } catch {
       setUpdateCheckStatus('error');
-      setUpdateCheckMessage('Impossible de joindre le serveur de mise à jour pour le moment.');
+      setUpdateCheckMessage(
+        'Service distant temporairement indisponible. Vos données locales SHALOM restent intactes.'
+      );
     }
   };
 

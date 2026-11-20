@@ -94,6 +94,8 @@ import {
 import { loadStudioDraft, saveStudioDraft } from '../../services/studioPersistence';
 import { deleteSavedOnlineTemplate } from '../../services/studioTemplatesStore';
 import { StudioWorkspaceShell, StudioToolRailItem } from './shared/StudioWorkspaceShell';
+import { StudioHomeScreen } from './shared/StudioHomeScreen';
+import { HorizontalScrollRail } from './shared/HorizontalScrollRail';
 import { VectorPreviewSvg } from './shared/VectorPreviewSvg';
 import { ShalomResourcesPanel } from './shared/ShalomResourcesPanel';
 import { TemplatePreviewCard } from './shared/TemplatePreviewCard';
@@ -1140,7 +1142,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
   const replaceImageInputRef = useRef<HTMLInputElement | null>(null);
   const draftRestoredRef = useRef(false);
 
-  const [activeToolTab, setActiveToolTab] = useState<StudioToolTab | null>('templates');
+  const [isHomeView, setIsHomeView] = useState(true);
+  const [activeToolTab, setActiveToolTab] = useState<StudioToolTab | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [editingCreationId, setEditingCreationId] = useState<string | null>(null);
   const [designTitle, setDesignTitle] = useState(
@@ -2404,6 +2407,34 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
     if (nextActive >= 0) setActivePageIndex(nextActive);
   };
 
+  const handleStartBlankProject = () => {
+    const hadContent =
+      pages.length > 1 ||
+      pages.some((pg) => pg.layers.length > 0 || pg.strokes.length > 0 || Boolean(pg.bgImageAssetKey));
+    if (hadContent) pushUndoSnapshot();
+    setEditingCreationId(null);
+    setDesignTitle(
+      isPresentation ? (isEn ? 'My Presentation' : 'Ma présentation') : isEn ? 'My Creation' : 'Ma création'
+    );
+    setFormatRatio(isPresentation ? 'landscape' : 'square');
+    setPages([createBlankPage(0, isPresentation)]);
+    setActivePageIndex(0);
+    setSelectedLayerIds([]);
+    setIsDrawMode(false);
+    setIsPanMode(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
+    setNotice(
+      isPresentation
+        ? isEn
+          ? 'New blank presentation ready!'
+          : 'Nouvelle présentation vierge prête !'
+        : isEn
+          ? 'New blank canvas ready!'
+          : 'Nouveau canevas vierge prêt !'
+    );
+  };
+
   const applyTemplate = async (tpl: DesignTemplate) => {
     pushUndoSnapshot();
     setEditingCreationId(null);
@@ -2419,6 +2450,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         activePageIndex: 0,
         pages: tpl.pages,
       });
+      setActiveToolTab(null);
+      setIsHomeView(false);
       setNotice(isEn ? `Template "${tpl.nameEn}" loaded.` : `Modèle « ${tpl.nameFr} » appliqué.`);
       return;
     }
@@ -2469,6 +2502,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       strokes: [],
     }));
     setSelectedLayerIds(hydrated.length > 0 ? [hydrated[hydrated.length - 1].id] : []);
+    setActiveToolTab(null);
+    setIsHomeView(false);
     setNotice(isEn ? `Template "${tpl.nameEn}" loaded.` : `Modèle « ${tpl.nameFr} » appliqué.`);
   };
 
@@ -2596,6 +2631,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
           setSelectedLayerIds([id]);
           setNotice(`« ${savedItem.title} » inséré sur le canevas.`);
         }
+        setActiveToolTab(null);
+        setIsHomeView(false);
         return;
       }
 
@@ -2654,6 +2691,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
     setSelectedLayerIds([id]);
     setIsDrawMode(false);
     setIsPanMode(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
   };
 
   const addShapeLayer = (shape: StudioVectorElementKind) => {
@@ -2681,6 +2720,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
     setSelectedLayerIds([id]);
     setIsDrawMode(false);
     setIsPanMode(false);
+    setActiveToolTab(null);
+    setIsHomeView(false);
   };
 
   const handleAddImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2717,6 +2758,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       setLayers((prev) => [...prev, next]);
       setSelectedLayerIds([id]);
       setIsDrawMode(false);
+      setActiveToolTab(null);
+      setIsHomeView(false);
     } catch {
       setNotice('Impossible de charger cette image.');
     }
@@ -2734,6 +2777,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       setBgImageEl(img);
       setBgImageAssetKey(assetKey);
       setBgType('image');
+      setActiveToolTab(null);
+      setIsHomeView(false);
       setNotice(isEn ? `Backdrop "${photo.nameEn}" applied.` : `Fond « ${photo.nameFr} » appliqué.`);
     } catch {
       setNotice('Impossible d’appliquer ce fond.');
@@ -2753,6 +2798,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       setBgImageEl(img);
       setBgImageAssetKey(assetKey);
       setBgType('image');
+      setActiveToolTab(null);
+      setIsHomeView(false);
     } catch {
       setNotice('Impossible de charger cette image de fond.');
     }
@@ -3016,6 +3063,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         setIsDrawMode(false);
         setNotice(`« ${asset.title} » ajouté sur le canevas.`);
       }
+      setActiveToolTab(null);
+      setIsHomeView(false);
     } catch {
       setNotice('Impossible de télécharger cette image ou illustration en ligne.');
     } finally {
@@ -3190,6 +3239,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       pushUndoSnapshot();
       await applySnapshot(parsed);
       setEditingCreationId(item.id);
+      setActiveToolTab(null);
+      setIsHomeView(false);
       setNotice(`Projet « ${item.title} » rouvert dans l’éditeur.`);
     } catch {
       setNotice('Impossible de charger les calques de ce projet.');
@@ -3315,7 +3366,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -3324,7 +3375,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
                   setTemplateCategory(cat);
                   handleSearchOnlineTemplates(templateQuery, cat, 1);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition ${
                   templateCategory === cat
                     ? 'bg-blue-700 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -3333,7 +3384,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
                 {cat === 'all' ? (isEn ? 'All' : 'Tout') : cat}
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
 
           {onlineStatusMsg && <div className="text-[11px] text-amber-600 dark:text-amber-400">{onlineStatusMsg}</div>}
 
@@ -3389,7 +3440,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       return (
         <div className="space-y-3">
           {/* Vector Categories */}
-          <div className="flex flex-wrap gap-1">
+          <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1">
             {[
               ['all', isEn ? 'All' : 'Tout'],
               ['spirituel', isEn ? 'Spiritual' : 'Spirituel'],
@@ -3401,7 +3452,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
                 key={id}
                 type="button"
                 onClick={() => setVectorCategoryFilter(id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition ${
                   vectorCategoryFilter === id
                     ? 'bg-blue-700 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -3410,7 +3461,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
                 {label}
               </button>
             ))}
-          </div>
+          </HorizontalScrollRail>
 
           {/* Genuine Recolorable SVG Vector Catalog (ZERO emojis) */}
           <div className="grid grid-cols-3 gap-2">
@@ -3722,6 +3773,8 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
                     setBgType('gradient');
                     setBgColor1(pal.colors[0]);
                     setBgColor2(pal.colors[1]);
+                    setActiveToolTab(null);
+                    setIsHomeView(false);
                   }}
                   className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs hover:border-blue-500"
                 >
@@ -3827,8 +3880,13 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
           <button
             type="button"
             onClick={() => {
-              setIsDrawMode((d) => !d);
+              const nextDraw = !isDrawMode;
+              setIsDrawMode(nextDraw);
               setIsPanMode(false);
+              if (nextDraw) {
+                setActiveToolTab(null);
+                setIsHomeView(false);
+              }
             }}
             className={`w-full min-h-[44px] py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition ${
               isDrawMode
@@ -4654,9 +4712,9 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
 
   // Bottom Multi-Page / Slide Strip & Zoom Strip
   const bottomBar = (
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-      {/* Multi-Page / Slide Tabs with drag reorder + transition selector in Presentation mode */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+      {/* Multi-Page / Slide Tabs with horizontal scroll cue + transition selector in Presentation mode */}
+      <HorizontalScrollRail innerClassName="gap-1.5 py-0.5" className="flex-1 min-w-0">
         {pages.map((pg, idx) => (
           <div
             key={pg.id}
@@ -4756,15 +4814,15 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             <option value="none">Aucune</option>
           </select>
         )}
-      </div>
+      </HorizontalScrollRail>
 
       {/* Snap + Pan + Zoom Controls */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <HorizontalScrollRail wrapOnDesktop innerClassName="gap-1.5" className="shrink-0">
         {isPresentation && (
           <button
             type="button"
             onClick={handleStartSlideshow}
-            className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold flex items-center gap-1 whitespace-nowrap"
+            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold flex items-center gap-1 whitespace-nowrap"
           >
             <MonitorPlay className="w-3.5 h-3.5" />
             <span>Diaporama</span>
@@ -4777,7 +4835,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             setIsDrawMode(false);
           }}
           title="Déplacer la vue (Main)"
-          className={`px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
+          className={`shrink-0 px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
             isPanMode ? 'bg-amber-500 text-slate-950' : 'bg-slate-100 dark:bg-slate-800'
           }`}
         >
@@ -4787,7 +4845,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
           type="button"
           onClick={() => setSnapEnabled((s) => !s)}
           title="Aimant d’alignement"
-          className={`px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
+          className={`shrink-0 px-2 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
             snapEnabled ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800'
           }`}
         >
@@ -4796,7 +4854,7 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         <button
           type="button"
           onClick={() => setWorkspaceZoom((z) => Math.max(50, z - 15))}
-          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="shrink-0 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
@@ -4806,28 +4864,28 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
             setWorkspaceZoom(100);
             setPanOffset({ x: 0, y: 0 });
           }}
-          className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold tabular-nums"
+          className="shrink-0 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold tabular-nums"
         >
           {workspaceZoom}%
         </button>
         <button
           type="button"
           onClick={() => setWorkspaceZoom((z) => Math.min(200, z + 15))}
-          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800"
+          className="shrink-0 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
-      </div>
+      </HorizontalScrollRail>
     </div>
   );
 
   // Export Multi-format Bar
   const exportMenu = (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 shrink-0">
       <button
         type="button"
         onClick={() => handleDownload('png')}
-        className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap"
+        className="shrink-0 min-h-[40px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap"
       >
         <Download className="w-3.5 h-3.5" />
         <span>PNG</span>
@@ -4835,14 +4893,14 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
       <button
         type="button"
         onClick={() => handleDownload('jpg')}
-        className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold hidden sm:flex items-center gap-1 whitespace-nowrap"
+        className="shrink-0 min-h-[40px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap"
       >
         <span>JPG</span>
       </button>
       <button
         type="button"
         onClick={() => handleDownload('pdf')}
-        className="min-h-[44px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold flex items-center gap-1 whitespace-nowrap"
+        className="shrink-0 min-h-[40px] lg:min-h-[38px] px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold flex items-center gap-1 whitespace-nowrap"
         title={pages.length > 1 ? `Exporter les ${pages.length} pages en PDF` : 'Exporter en PDF'}
       >
         <FileText className="w-3.5 h-3.5" />
@@ -4878,6 +4936,30 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
     : null;
 
   const activeSlideTransition = pages[slideshowIndex]?.transition || 'fade';
+  const hasActiveWork =
+    pages.length > 1 ||
+    pages.some((pg) => pg.layers.length > 0 || pg.strokes.length > 0 || Boolean(pg.bgImageAssetKey));
+  const homeFeaturedTemplates = (isPresentation
+    ? DESIGN_TEMPLATES.filter((t) => t.id !== 'blank' && t.format === 'landscape')
+    : DESIGN_TEMPLATES.filter((t) => t.id !== 'blank')
+  )
+    .slice(0, 8)
+    .map((tpl) => ({
+      id: tpl.id,
+      title: isEn ? tpl.nameEn : tpl.nameFr,
+      category: tpl.category,
+      kind: studioMode,
+      format: tpl.format,
+      bgType: tpl.bgType,
+      bgColor1: tpl.bgColor1,
+      bgColor2: tpl.bgColor2,
+      bgAngle: tpl.bgAngle,
+      bgRemoteImageUrl: tpl.bgRemoteImageUrl,
+      layers: tpl.layers as unknown as Array<Record<string, unknown>>,
+      pages: tpl.pages as unknown as Array<Record<string, unknown>>,
+      slideCount: tpl.pages?.length,
+      onSelectPreview: () => setPreviewingTemplate(tpl),
+    }));
 
   return (
     <>
@@ -4889,32 +4971,72 @@ export const CreativeStudioModule: React.FC<CreativeStudioModuleProps> = ({ mode
         className="hidden"
       />
 
-      <StudioWorkspaceShell
-        projectTitle={designTitle}
-        onProjectTitleChange={setDesignTitle}
-        titlePlaceholder={isPresentation ? 'Ma présentation SHALOM' : 'Ma création SHALOM'}
-        statusLine={`${isPresentation ? 'Diapo' : 'Page'} ${activePageIndex + 1}/${pages.length} · ${dims.w}×${dims.h} · Brouillon auto`}
-        canUndo={historyPast.length > 0}
-        canRedo={historyFuture.length > 0}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onPreview={isPresentation ? handleStartSlideshow : handleOpenPreview}
-        onSaveProject={handleSaveProject}
-        onOpenShalomFolder={handleOpenShalomFolder}
-        onShare={handleShare}
-        exportMenu={exportMenu}
-        toolItems={toolItems}
-        activeToolId={activeToolTab}
-        onSelectTool={(id) => setActiveToolTab(id as StudioToolTab | null)}
-        toolDrawerContent={renderToolDrawer()}
-        selectionToolbar={selectionToolbar}
-        centerStage={centerStage}
-        bottomBar={bottomBar}
-        inspectorTitle="Propriétés"
-        inspectorContent={inspectorContent}
-        isInspectorOpen={isInspectorOpen}
-        onToggleInspector={() => setIsInspectorOpen((v) => !v)}
-      />
+      {isHomeView ? (
+        <StudioHomeScreen
+          kind={studioMode}
+          isEn={isEn}
+          hasActiveWork={hasActiveWork}
+          activeProjectTitle={designTitle}
+          activeSummary={`${isPresentation ? 'Diapos' : 'Pages'} : ${pages.length} · ${pages[activePageIndex]?.layers.length || 0} élément(s)`}
+          onCreateBlank={handleStartBlankProject}
+          onContinueWork={() => {
+            setActiveToolTab(null);
+            setIsHomeView(false);
+          }}
+          onOpenTemplatesTool={() => {
+            setIsHomeView(false);
+            setActiveToolTab('templates');
+          }}
+          onOpenLibraryTool={() => {
+            setIsHomeView(false);
+            setActiveToolTab('elements');
+          }}
+          libraryLabel={isEn ? 'Elements & Graphics' : 'Éléments & Décors'}
+          onOpenShalomResources={() => {
+            setIsHomeView(false);
+            setActiveToolTab('shalom');
+          }}
+          onOpenAllSaved={() => {
+            setIsHomeView(false);
+            setActiveToolTab('creations');
+          }}
+          savedProjects={designCreations}
+          savedPreviews={savedPreviews}
+          onOpenSavedProject={handleReopenSavedProject}
+          featuredTemplates={homeFeaturedTemplates}
+        />
+      ) : (
+        <StudioWorkspaceShell
+          projectTitle={designTitle}
+          onProjectTitleChange={setDesignTitle}
+          titlePlaceholder={isPresentation ? 'Ma présentation SHALOM' : 'Ma création SHALOM'}
+          statusLine={`${isPresentation ? 'Diapo' : 'Page'} ${activePageIndex + 1}/${pages.length} · ${dims.w}×${dims.h} · Brouillon auto`}
+          canUndo={historyPast.length > 0}
+          canRedo={historyFuture.length > 0}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onReturnHome={() => {
+            setActiveToolTab(null);
+            setIsHomeView(true);
+          }}
+          onPreview={isPresentation ? handleStartSlideshow : handleOpenPreview}
+          onSaveProject={handleSaveProject}
+          onOpenShalomFolder={handleOpenShalomFolder}
+          onShare={handleShare}
+          exportMenu={exportMenu}
+          toolItems={toolItems}
+          activeToolId={activeToolTab}
+          onSelectTool={(id) => setActiveToolTab(id as StudioToolTab | null)}
+          toolDrawerContent={renderToolDrawer()}
+          selectionToolbar={selectionToolbar}
+          centerStage={centerStage}
+          bottomBar={bottomBar}
+          inspectorTitle="Propriétés"
+          inspectorContent={inspectorContent}
+          isInspectorOpen={isInspectorOpen}
+          onToggleInspector={() => setIsInspectorOpen((v) => !v)}
+        />
+      )}
 
       {/* Template Visual Preview Modal BEFORE Applying */}
       <TemplatePreviewModal

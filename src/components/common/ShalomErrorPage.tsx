@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Home } from 'lucide-react';
 import peaceArtwork from '../../assets/images/shalom_peace_light_1794907456870.jpg';
 
 interface ShalomErrorPageProps {
   onRetry?: () => void;
+  onReturnHome?: () => void;
   technicalHint?: string;
   mode?: 'offline' | 'network' | 'runtime';
   titleOverride?: string;
@@ -12,6 +13,7 @@ interface ShalomErrorPageProps {
 
 export const ShalomErrorPage: React.FC<ShalomErrorPageProps> = ({
   onRetry,
+  onReturnHome,
   technicalHint,
   mode,
   titleOverride,
@@ -26,10 +28,10 @@ export const ShalomErrorPage: React.FC<ShalomErrorPageProps> = ({
   const resolvedMessage =
     messageOverride ||
     (effectiveMode === 'offline'
-      ? '« Nous n’arrivons pas à établir la connexion pour le moment. Vérifiez votre connexion Internet et réessayez dans quelques instants. »'
+      ? '« Pas de connexion Internet. Vos données locales restent disponibles — rétablissez la connexion pour cette action ou revenez à SHALOM. »'
       : effectiveMode === 'network'
-        ? '« Une ressource distante n’a pas pu être chargée pour le moment. Réessayez dans quelques instants. »'
-        : '« Une erreur interne est survenue dans l’application. Vos créations et données locales restent en sécurité — appuyez sur Réessayer pour restaurer l’affichage. »');
+        ? '« Une ressource distante n’a pas pu être chargée pour le moment. Réessayez dans quelques instants ou revenez à SHALOM. »'
+        : '« Une erreur interne est survenue sur cet écran. Vos créations, prières et documents locaux restent en sécurité — appuyez sur Réessayer ou Retour à SHALOM. »');
 
   const handleRetry = () => {
     setRetrying(true);
@@ -39,6 +41,19 @@ export const ShalomErrorPage: React.FC<ShalomErrorPageProps> = ({
       window.location.reload();
     }
     window.setTimeout(() => setRetrying(false), 1800);
+  };
+
+  const handleReturnHome = () => {
+    if (onReturnHome) {
+      onReturnHome();
+      return;
+    }
+    try {
+      window.history.replaceState({}, '', './');
+    } catch {
+      // ignore history error
+    }
+    window.location.replace('./');
   };
 
   return (
@@ -79,10 +94,10 @@ export const ShalomErrorPage: React.FC<ShalomErrorPageProps> = ({
             </h1>
             <p className="text-sm sm:text-base font-medium text-blue-100/90 italic">
               {effectiveMode === 'offline'
-                ? '« Connexion hors ligne… »'
+                ? '« Mode hors ligne… »'
                 : effectiveMode === 'network'
-                  ? '« Chargement interrompu… »'
-                  : '« Un instant de paix… »'}
+                  ? '« Service distant indisponible… »'
+                  : '« Incident technique local… »'}
             </p>
           </div>
         </div>
@@ -109,15 +124,26 @@ export const ShalomErrorPage: React.FC<ShalomErrorPageProps> = ({
           <p className="text-[11px] text-slate-400 break-words">{technicalHint}</p>
         )}
 
-        <button
-          type="button"
-          onClick={handleRetry}
-          disabled={retrying}
-          className="w-full min-h-[48px] px-6 py-3 rounded-xl bg-gradient-to-r from-[#c89d28] via-[#dfb848] to-[#c89d28] hover:brightness-110 active:scale-[0.99] disabled:opacity-70 text-[#071128] font-extrabold text-xs sm:text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-        >
-          <RefreshCw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
-          <span>RÉESSAYER</span>
-        </button>
+        <div className="flex flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="w-full min-h-[48px] px-6 py-3 rounded-xl bg-gradient-to-r from-[#c89d28] via-[#dfb848] to-[#c89d28] hover:brightness-110 active:scale-[0.99] disabled:opacity-70 text-[#071128] font-extrabold text-xs sm:text-sm tracking-wider flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${retrying ? 'animate-spin' : ''}`} />
+            <span>RÉESSAYER</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReturnHome}
+            className="w-full min-h-[44px] px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-slate-100 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Home className="w-4 h-4" />
+            <span>RETOUR À SHALOM</span>
+          </button>
+        </div>
       </main>
     </div>
   );
